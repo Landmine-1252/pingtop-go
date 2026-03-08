@@ -61,7 +61,7 @@ Prebuilt binaries can also be published from [GitHub Releases](https://github.co
 
 ## GitHub Releases
 
-When you push a tag in `vX.Y.Z` format, the release workflow builds and publishes archives for:
+When you push a tag in `X.Y.Z` or `vX.Y.Z` format, the release workflow builds and publishes archives for:
 
 - Linux `amd64`
 - Linux `arm64`
@@ -72,6 +72,11 @@ When you push a tag in `vX.Y.Z` format, the release workflow builds and publishe
 - Windows `arm64`
 
 Release binaries embed the tag version and the GitHub repository URL so the in-app update check points at [`Landmine-1252/pingtop-go`](https://github.com/Landmine-1252/pingtop-go) automatically.
+
+Example release tags:
+
+- `0.1.0`
+- `v0.1.0`
 
 ## Controls
 

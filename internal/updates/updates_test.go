@@ -11,6 +11,9 @@ func TestVersionHelpers(t *testing.T) {
 	if _, _, _, ok := parseVersionTag("v" + pingtop.Version); !ok {
 		t.Fatalf("expected version tag to parse: %s", pingtop.Version)
 	}
+	if _, _, _, ok := parseVersionTag(pingtop.Version); !ok {
+		t.Fatalf("expected bare version to parse: %s", pingtop.Version)
+	}
 	if normalizeRepoURL("https://github.com/Landmine-1252/pingtop-go.git") != "https://github.com/Landmine-1252/pingtop-go" {
 		t.Fatal("failed to normalize https repo url")
 	}
@@ -20,8 +23,14 @@ func TestVersionHelpers(t *testing.T) {
 	if !isNewerVersion("v0.1.0", "v0.2.0") {
 		t.Fatal("expected newer version comparison to succeed")
 	}
+	if !isNewerVersion("0.1.0", "0.2.0") {
+		t.Fatal("expected bare newer version comparison to succeed")
+	}
 	if isNewerVersion("v0.2.0", "v0.1.0") {
 		t.Fatal("expected older version comparison to fail")
+	}
+	if isNewerVersion("0.2.0", "0.1.0") {
+		t.Fatal("expected older bare version comparison to fail")
 	}
 }
 
@@ -41,16 +50,16 @@ func TestBuildReleaseAPIURLRequiresGitHubRepo(t *testing.T) {
 
 func TestUpdateManagerMarksAvailableVersion(t *testing.T) {
 	manager := NewUpdateManager(
-		"v0.1.0",
+		"0.1.0",
 		"https://github.com/Landmine-1252/pingtop-go",
 		true,
 		func(repoURL string, timeout time.Duration) (string, string, error) {
-			return "v0.2.0", "https://github.com/Landmine-1252/pingtop-go/releases/tag/v0.2.0", nil
+			return "0.2.0", "https://github.com/Landmine-1252/pingtop-go/releases/tag/0.2.0", nil
 		},
 	)
 	manager.run()
 	status := manager.Snapshot()
-	if status.State != "available" || status.LatestVersion != "v0.2.0" {
+	if status.State != "available" || status.LatestVersion != "0.2.0" {
 		t.Fatalf("unexpected update status: %#v", status)
 	}
 }

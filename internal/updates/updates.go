@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-var versionTagRE = regexp.MustCompile(`^v(\d+)\.(\d+)\.(\d+)$`)
+var versionTagRE = regexp.MustCompile(`^v?(\d+)\.(\d+)\.(\d+)$`)
 
 type UpdateStatus struct {
 	State          string
