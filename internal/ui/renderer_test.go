@@ -30,3 +30,32 @@ func TestBuildExitSummaryIncludesTitleAndRuntime(t *testing.T) {
 		t.Fatalf("expected runtime in output, got %q", output)
 	}
 }
+
+func TestBuildScreenIncludesVersionInHeader(t *testing.T) {
+	renderer := &Renderer{}
+	output := renderer.BuildScreen(
+		pingtop.StateSnapshot{
+			Diagnosis:          "All monitored targets are reachable",
+			StatsWindowSeconds: 3600,
+		},
+		pingtop.AppConfig{
+			CheckIntervalSeconds:     1,
+			PingTimeoutMS:            1200,
+			UIRefreshIntervalSeconds: 0.5,
+			LatencyWarningMS:         100,
+			LatencyCriticalMS:        250,
+			DiagnosisConfirmCycles:   2,
+			RecoveryConfirmCycles:    2,
+			LoggingMode:              "around_failure",
+			VisibleEventLines:        8,
+		},
+		false,
+		false,
+		nil,
+		UpdateStatus{},
+	)
+
+	if !strings.Contains(output, "pingtop "+pingtop.Version) {
+		t.Fatalf("expected versioned header, got %q", output)
+	}
+}

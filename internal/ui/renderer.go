@@ -145,8 +145,9 @@ func (renderer *Renderer) BuildScreen(
 	shownEventCount := minInt(len(visibleEvents), config.VisibleEventLines)
 
 	statusColor := renderer.diagnosisColor(snapshot.Diagnosis, paused)
+	title := "pingtop " + pingtop.Version
 
-	headerLines := []string{renderer.style("pingtop", "green", true, false)}
+	headerLines := []string{renderer.style(title, "green", true, false)}
 	headerLines = append(headerLines, renderer.diagnosisBanner(snapshot.Diagnosis, width, statusColor))
 	headerLines = append(headerLines,
 		renderer.wrapPairs("Status", []textPair{
