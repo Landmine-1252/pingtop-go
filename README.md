@@ -44,6 +44,8 @@ go run . -n        # headless mode
 go run . -o        # single pass
 go run . -v        # version
 go run . -h        # help
+go run . -u        # one-shot update check
+go run . --updates
 go run . 1.1.1.1
 go run . example.com 1.1.1.1
 ```
@@ -55,6 +57,8 @@ go build -o pingtop
 ./pingtop
 ./pingtop -h
 ./pingtop -v
+./pingtop -u
+./pingtop --updates
 ```
 
 Build `pingtop.exe` on Windows:
@@ -64,9 +68,20 @@ go build -o pingtop.exe .
 .\pingtop.exe
 .\pingtop.exe -h
 .\pingtop.exe -v
+.\pingtop.exe -u
+.\pingtop.exe --updates
 ```
 
 Passing one or more positional targets overrides the configured target list for that run only. Those ad hoc runs keep the normal UI or headless behavior, but CSV logging is disabled for that session.
+
+To debug update detection without publishing a new release, run:
+
+```bash
+pingtop -u
+pingtop --updates
+pingtop -u --current-version 0.1.3
+pingtop --check-updates --current-version 0.1.3 --update-repo https://github.com/Landmine-1252/pingtop-go
+```
 
 ## Controls
 

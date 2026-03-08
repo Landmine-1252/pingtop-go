@@ -87,6 +87,48 @@ func TestParseArgsSupportsShortAliases(t *testing.T) {
 	}
 }
 
+func TestParseArgsSupportsUpdateCheckFlags(t *testing.T) {
+	args, err := parseArgs([]string{"--check-updates", "--update-repo", "https://github.com/Landmine-1252/pingtop-go", "--current-version", "0.1.3"})
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	if !args.checkUpdates {
+		t.Fatal("expected --check-updates to enable update check mode")
+	}
+	if args.updateRepo != "https://github.com/Landmine-1252/pingtop-go" {
+		t.Fatalf("unexpected update repo: %q", args.updateRepo)
+	}
+	if args.forceVersion != "0.1.3" {
+		t.Fatalf("unexpected current version override: %q", args.forceVersion)
+	}
+}
+
+func TestParseArgsSupportsShortUpdateAlias(t *testing.T) {
+	args, err := parseArgs([]string{"-u", "--current-version", "0.1.3"})
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	if !args.checkUpdates {
+		t.Fatal("expected -u to enable update check mode")
+	}
+	if args.forceVersion != "0.1.3" {
+		t.Fatalf("unexpected current version override: %q", args.forceVersion)
+	}
+}
+
+func TestParseArgsSupportsLongUpdatesAlias(t *testing.T) {
+	args, err := parseArgs([]string{"--updates", "--current-version", "0.1.3"})
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	if !args.checkUpdates {
+		t.Fatal("expected --updates to enable update check mode")
+	}
+	if args.forceVersion != "0.1.3" {
+		t.Fatalf("unexpected current version override: %q", args.forceVersion)
+	}
+}
+
 func TestParseArgsCapturesPositionalTargets(t *testing.T) {
 	args, err := parseArgs([]string{"-n", "example.com", "1.1.1.1"})
 	if err != nil {
@@ -255,6 +297,82 @@ func TestHandleKeyHTogglesAndPersistsHelpVisibility(t *testing.T) {
 	)
 	if reopened.helpVisible {
 		t.Fatal("expected reopened UI to use saved hidden help state")
+	}
+}
+
+func TestRunUpdateCheckPrintsAvailableStatus(t *testing.T) {
+	original := checkUpdatesNow
+	checkUpdatesNow = func(currentVersion, repoURL string, enabled bool) UpdateStatus {
+		return UpdateStatus{
+			State:          "available",
+			CurrentVersion: currentVersion,
+			LatestVersion:  "0.1.4",
+			RepoURL:        repoURL,
+			ReleaseURL:     repoURL + "/releases/tag/0.1.4",
+		}
+	}
+	defer func() {
+		checkUpdatesNow = original
+	}()
+
+	stdoutReader, stdoutWriter, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create stdout pipe: %v", err)
+	}
+	stderrReader, stderrWriter, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create stderr pipe: %v", err)
+	}
+
+	rc := runUpdateCheck(stdoutWriter, stderrWriter, cliArgs{
+		checkUpdates: true,
+		updateRepo:   "https://github.com/Landmine-1252/pingtop-go",
+		forceVersion: "0.1.3",
+	})
+	_ = stdoutWriter.Close()
+	_ = stderrWriter.Close()
+
+	if rc != 0 {
+		t.Fatalf("expected rc 0, got %d", rc)
+	}
+
+	stdout, err := io.ReadAll(stdoutReader)
+	if err != nil {
+		t.Fatalf("failed to read stdout: %v", err)
+	}
+	stderr, err := io.ReadAll(stderrReader)
+	if err != nil {
+		t.Fatalf("failed to read stderr: %v", err)
+	}
+	if len(stderr) != 0 {
+		t.Fatalf("expected no stderr output, got %q", string(stderr))
+	}
+	text := string(stdout)
+	if !strings.Contains(text, "state: available") || !strings.Contains(text, "latest version: 0.1.4") {
+		t.Fatalf("unexpected output: %q", text)
+	}
+}
+
+func TestRunShortUpdateAliasPrintsAvailableStatus(t *testing.T) {
+	original := checkUpdatesNow
+	checkUpdatesNow = func(currentVersion, repoURL string, enabled bool) UpdateStatus {
+		return UpdateStatus{
+			State:          "available",
+			CurrentVersion: currentVersion,
+			LatestVersion:  "0.1.4",
+			RepoURL:        repoURL,
+			ReleaseURL:     repoURL + "/releases/tag/0.1.4",
+		}
+	}
+	defer func() {
+		checkUpdatesNow = original
+	}()
+
+	output := captureStdout(t, func() int {
+		return Run([]string{"-u", "--current-version", "0.1.3", "--update-repo", "https://github.com/Landmine-1252/pingtop-go"})
+	})
+	if !strings.Contains(output, "state: available") || !strings.Contains(output, "latest version: 0.1.4") {
+		t.Fatalf("unexpected output: %q", output)
 	}
 }
 

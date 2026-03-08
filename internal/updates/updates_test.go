@@ -65,6 +65,21 @@ func TestUpdateManagerMarksAvailableVersion(t *testing.T) {
 	}
 }
 
+func TestUpdateManagerCheckNowReturnsSnapshot(t *testing.T) {
+	manager := NewUpdateManager(
+		"0.1.3",
+		"https://github.com/Landmine-1252/pingtop-go",
+		true,
+		func(repoURL string, timeout time.Duration) (string, string, error) {
+			return "0.1.4", "https://github.com/Landmine-1252/pingtop-go/releases/tag/0.1.4", nil
+		},
+	)
+	status := manager.CheckNow()
+	if status.State != "available" || status.LatestVersion != "0.1.4" {
+		t.Fatalf("unexpected check-now status: %#v", status)
+	}
+}
+
 func TestUpdateManagerRefreshesWhileRunning(t *testing.T) {
 	var mu sync.Mutex
 	latestVersion := "0.1.0"

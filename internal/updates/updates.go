@@ -219,6 +219,14 @@ func (manager *UpdateManager) Snapshot() UpdateStatus {
 	return manager.status
 }
 
+func (manager *UpdateManager) CheckNow() UpdateStatus {
+	if !manager.enabled {
+		return manager.Snapshot()
+	}
+	manager.run()
+	return manager.Snapshot()
+}
+
 func (manager *UpdateManager) OpenPage() (bool, string) {
 	status := manager.Snapshot()
 	targetURL := status.ReleaseURL

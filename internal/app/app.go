@@ -32,12 +32,20 @@ type TargetSpec = pingtop.TargetSpec
 type UpdateManager = updates.UpdateManager
 type UpdateStatus = updates.UpdateStatus
 
+var checkUpdatesNow = func(currentVersion, repoURL string, enabled bool) UpdateStatus {
+	manager := updates.NewUpdateManager(currentVersion, repoURL, enabled, nil)
+	return manager.CheckNow()
+}
+
 type cliArgs struct {
-	noUI        bool
-	once        bool
-	showHelp    bool
-	showVersion bool
-	targets     []string
+	noUI         bool
+	once         bool
+	showHelp     bool
+	showVersion  bool
+	checkUpdates bool
+	updateRepo   string
+	forceVersion string
+	targets      []string
 }
 
 type AppServices struct {
@@ -75,7 +83,11 @@ func writeUsage(output io.Writer) {
 	fmt.Fprintln(output, "  -h, --help     show help and exit")
 	fmt.Fprintln(output, "  -n, --no-ui    run in headless text mode")
 	fmt.Fprintln(output, "  -o, --once     run a single cycle and exit")
+	fmt.Fprintln(output, "  -u, --updates  run one update check and exit")
 	fmt.Fprintln(output, "  -v, --version  print version and exit")
+	fmt.Fprintln(output, "      --check-updates         same as --updates")
+	fmt.Fprintln(output, "      --update-repo URL       override the update repository URL for this run")
+	fmt.Fprintln(output, "      --current-version VAL   override the current version for update testing")
 	fmt.Fprintln(output)
 	fmt.Fprintln(output, "Positional targets:")
 	fmt.Fprintln(output, "  One or more hostnames or IPs to monitor for this run only.")
@@ -86,9 +98,13 @@ func writeUsage(output io.Writer) {
 	fmt.Fprintln(output, "  pingtop -v")
 	fmt.Fprintln(output, "  pingtop -o")
 	fmt.Fprintln(output, "  pingtop -n")
+	fmt.Fprintln(output, "  pingtop -u")
+	fmt.Fprintln(output, "  pingtop --updates")
 	fmt.Fprintln(output, "  pingtop 1.1.1.1")
 	fmt.Fprintln(output, "  pingtop example.com 1.1.1.1")
 	fmt.Fprintln(output, "  pingtop -n example.com 1.1.1.1")
+	fmt.Fprintln(output, "  pingtop --updates")
+	fmt.Fprintln(output, "  pingtop --check-updates --current-version 0.1.3")
 }
 
 func printCycleSummary(results []CheckResult, snapshot StateSnapshot) {
@@ -189,8 +205,13 @@ func parseArgs(argv []string) (cliArgs, error) {
 	flags.BoolVar(&args.noUI, "no-ui", false, "run in headless text mode")
 	flags.BoolVar(&args.once, "o", false, "run a single cycle and exit")
 	flags.BoolVar(&args.once, "once", false, "run a single cycle and exit")
+	flags.BoolVar(&args.checkUpdates, "u", false, "run one update check and exit")
+	flags.BoolVar(&args.checkUpdates, "updates", false, "run one update check and exit")
 	flags.BoolVar(&args.showVersion, "v", false, "print version and exit")
 	flags.BoolVar(&args.showVersion, "version", false, "print version and exit")
+	flags.BoolVar(&args.checkUpdates, "check-updates", false, "run one update check and exit")
+	flags.StringVar(&args.updateRepo, "update-repo", "", "override the update repository URL for this run")
+	flags.StringVar(&args.forceVersion, "current-version", "", "override the current version for update testing")
 	if err := flags.Parse(argv); err != nil {
 		return args, err
 	}
@@ -262,6 +283,9 @@ func Run(argv []string) int {
 		fmt.Println(pingtop.Version)
 		return 0
 	}
+	if args.checkUpdates {
+		return runUpdateCheck(os.Stdout, os.Stderr, args)
+	}
 
 	services, err := buildServices(pingtop.ResolveRuntimePaths(), args)
 	if err != nil {
@@ -303,6 +327,45 @@ func Run(argv []string) int {
 	result := ui.Run()
 	printInteractiveExitSummary(services.stateStore.Snapshot())
 	return result
+}
+
+func runUpdateCheck(output io.Writer, errorOutput io.Writer, args cliArgs) int {
+	configManager := pingtop.NewConfigManager(pingtop.ResolveRuntimePaths().ConfigPath)
+	if warning := configManager.LoadWarning(); warning != "" {
+		fmt.Fprintf(errorOutput, "warning: %s\n", warning)
+	}
+
+	config := configManager.Snapshot()
+	repoURL := strings.TrimSpace(config.UpdateRepoURL)
+	if override := strings.TrimSpace(args.updateRepo); override != "" {
+		repoURL = override
+	}
+	if repoURL == "" {
+		fmt.Fprintln(errorOutput, "error: no update repository URL configured")
+		return 2
+	}
+
+	currentVersion := "v" + pingtop.Version
+	if override := strings.TrimSpace(args.forceVersion); override != "" {
+		currentVersion = override
+	}
+
+	status := checkUpdatesNow(currentVersion, repoURL, true)
+	fmt.Fprintln(output, "Update check")
+	fmt.Fprintf(output, "  current version: %s\n", currentVersion)
+	fmt.Fprintf(output, "  repo URL: %s\n", repoURL)
+	fmt.Fprintf(output, "  state: %s\n", status.State)
+	if status.LatestVersion != "" {
+		fmt.Fprintf(output, "  latest version: %s\n", status.LatestVersion)
+	}
+	if status.ReleaseURL != "" {
+		fmt.Fprintf(output, "  release URL: %s\n", status.ReleaseURL)
+	}
+	if status.ErrorMessage != "" {
+		fmt.Fprintf(output, "  error: %s\n", status.ErrorMessage)
+		return 1
+	}
+	return 0
 }
 
 type PingTopUI struct {
