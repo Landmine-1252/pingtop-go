@@ -22,6 +22,7 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+          cache-dependency-path: go.mod
 
       - name: Validate tag format
         shell: bash
@@ -82,6 +83,7 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+          cache-dependency-path: go.mod
 
       - name: Build release archive
         id: package
@@ -110,7 +112,7 @@ jobs:
 
           go build \
             -trimpath \
-            -ldflags "-s -w -X github.com/Landmine-1252/pingtop-go/internal/pingtop.Version=${version} -X github.com/Landmine-1252/pingtop-go/internal/pingtop.DefaultUpdateRepoURL=${REPOSITORY_URL}" \
+            -ldflags "-s -w -X github.com/landmine-1252/pingtop-go/internal/pingtop.Version=${version} -X github.com/landmine-1252/pingtop-go/internal/pingtop.DefaultUpdateRepoURL=${REPOSITORY_URL}" \
             -o "${staging_dir}/${binary_name}" \
             .
 

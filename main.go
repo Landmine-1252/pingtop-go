@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/Landmine-1252/pingtop-go/internal/app"
+	"github.com/landmine-1252/pingtop-go/internal/app"
 )
 
 func main() {

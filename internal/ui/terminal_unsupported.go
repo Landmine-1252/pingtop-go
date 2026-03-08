@@ -6,7 +6,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/Landmine-1252/pingtop-go/internal/pingtop"
+	"github.com/landmine-1252/pingtop-go/internal/pingtop"
 )
 
 func TerminalSize() (int, int) {

@@ -11,10 +11,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Landmine-1252/pingtop-go/internal/checks"
-	"github.com/Landmine-1252/pingtop-go/internal/pingtop"
-	termui "github.com/Landmine-1252/pingtop-go/internal/ui"
-	"github.com/Landmine-1252/pingtop-go/internal/updates"
+	"github.com/landmine-1252/pingtop-go/internal/checks"
+	"github.com/landmine-1252/pingtop-go/internal/pingtop"
+	termui "github.com/landmine-1252/pingtop-go/internal/ui"
+	"github.com/landmine-1252/pingtop-go/internal/updates"
 )
 
 type AppConfig = pingtop.AppConfig

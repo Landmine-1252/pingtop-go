@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Landmine-1252/pingtop-go/internal/pingtop"
+	"github.com/landmine-1252/pingtop-go/internal/pingtop"
 )
 
 func TestVersionHelpers(t *testing.T) {

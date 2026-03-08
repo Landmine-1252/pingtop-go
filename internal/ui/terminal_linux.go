@@ -8,11 +8,18 @@ import (
 	"syscall"
 	"unsafe"
 
-	"github.com/Landmine-1252/pingtop-go/internal/pingtop"
+	"github.com/landmine-1252/pingtop-go/internal/pingtop"
 )
 
+type winsize struct {
+	Row    uint16
+	Col    uint16
+	Xpixel uint16
+	Ypixel uint16
+}
+
 func TerminalSize() (int, int) {
-	ws := &syscall.Winsize{}
+	ws := &winsize{}
 	_, _, errno := syscall.Syscall(
 		syscall.SYS_IOCTL,
 		os.Stdout.Fd(),
