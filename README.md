@@ -1,135 +1,102 @@
 # pingtop
 
-`pingtop` is a Go rewrite of the original Python [`pingtop`](https://github.com/Landmine-1252/pingtop) monitor. The Go project and releases live at [`Landmine-1252/pingtop-go`](https://github.com/Landmine-1252/pingtop-go).
+[![CI](https://img.shields.io/github/actions/workflow/status/landmine-1252/pingtop-go/ci.yml?branch=main&label=ci&logo=githubactions)](https://github.com/Landmine-1252/pingtop-go/actions/workflows/ci.yml)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/landmine-1252/pingtop-go?logo=go)](https://github.com/Landmine-1252/pingtop-go/blob/main/go.mod)
+[![Release](https://img.shields.io/github/v/release/landmine-1252/pingtop-go?display_name=tag&sort=semver&logo=github)](https://github.com/Landmine-1252/pingtop-go/releases)
+[![Coverage](https://img.shields.io/codecov/c/github/landmine-1252/pingtop-go?logo=codecov)](https://app.codecov.io/gh/landmine-1252/pingtop-go)
+[![Go Report Card](https://goreportcard.com/badge/github.com/landmine-1252/pingtop-go)](https://goreportcard.com/report/github.com/landmine-1252/pingtop-go)
+[![Downloads](https://img.shields.io/github/downloads/landmine-1252/pingtop-go/latest/total?logo=github)](https://github.com/Landmine-1252/pingtop-go/releases)
+[![Platforms](https://img.shields.io/badge/platform-linux%20%7C%20macOS%20%7C%20windows-1f2937)](https://github.com/Landmine-1252/pingtop-go/releases)
+[![Arch](https://img.shields.io/badge/arch-amd64%20%7C%20arm64%20%7C%20armv7-2563eb)](https://github.com/Landmine-1252/pingtop-go/releases)
 
-It keeps the same practical operator workflow:
+`pingtop` is a Go rewrite of the original Python [`pingtop`](https://github.com/Landmine-1252/pingtop). The Go code, releases, and CI live in [`Landmine-1252/pingtop-go`](https://github.com/Landmine-1252/pingtop-go).
 
-- classify intermittent issues into general network, DNS, or isolated path failures
-- ping configured IP and hostname targets on a schedule
-- resolve hostnames separately so DNS failures stay distinct from reachability failures
-- run in an interactive ANSI UI or in headless mode
-- persist config, CSV logs, rotated logs, and text snapshot reports beside the launched binary
+![pingtop demo](demo.gif)
 
-## Go-Specific Improvements
+## What It Does
 
-- single native binary, no Python runtime required
-- goroutine-based concurrent checks
-- `go run` uses the current working directory for runtime files instead of a temporary build directory
-- Linux/WSL and Windows interactive mode use native terminal APIs without extra third-party dependencies
+- live terminal UI with redraws, color, and keyboard controls
+- concurrent ping and DNS checks with simple failure classification
+- interactive mode and headless mode
+- single-binary releases for Linux, macOS, and Windows
+- ad hoc target runs from the command line without writing CSV logs
 
-## Runtime Files
+## Downloads
 
-The Go version keeps the Python-compatible filenames:
+Prebuilt binaries are published on [GitHub Releases](https://github.com/Landmine-1252/pingtop-go/releases).
 
-- `pingtop.json`
-- `pingtop_log.csv`
-- `pingtop_snapshot_YYYYMMDD_HHMMSS.txt`
+- platforms: Linux, macOS, Windows
+- architectures: `amd64`, `arm64`, Linux `armv7`
+- packaging: single binary per archive, no Go runtime required
+- size: release asset sizes vary by platform and version; see the latest release assets for exact download sizes
 
-The config schema is intentionally compatible with the Python project.
+## Quick Start
 
-## Run From Source
-
-From the project folder:
+Run from source:
 
 ```bash
-go run . --help
-go run . -v
-go run . 
-go run . -o
-go run . -n
+go run .           # interactive UI when a supported TTY is available
+go run . -n        # headless mode
+go run . -o        # single pass
+go run . -v        # version
+go run . -h        # help
 go run . 1.1.1.1
 go run . example.com 1.1.1.1
 ```
 
-## Build Locally
-
-Build a binary for your current platform:
+Build locally:
 
 ```bash
 go build -o pingtop
-./pingtop --help
-./pingtop -v
 ./pingtop
-./pingtop -o
-./pingtop -n
-./pingtop 1.1.1.1
-./pingtop example.com 1.1.1.1
+./pingtop -h
+./pingtop -v
 ```
 
-Build a Windows executable named `pingtop.exe`:
+Build `pingtop.exe` on Windows:
 
 ```powershell
 go build -o pingtop.exe .
-.\pingtop.exe --help
-.\pingtop.exe -v
 .\pingtop.exe
-.\pingtop.exe -o
-.\pingtop.exe -n
-.\pingtop.exe 1.1.1.1
-.\pingtop.exe example.com 1.1.1.1
+.\pingtop.exe -h
+.\pingtop.exe -v
 ```
 
-Passing one or more positional targets runs `pingtop` against only those targets for that session. Command-line target runs keep the normal UI/headless behavior, but CSV logging is disabled for that run.
-
-Prebuilt binaries can also be published from [GitHub Releases](https://github.com/Landmine-1252/pingtop-go/releases).
-
-## GitHub Releases
-
-When you push a tag in `X.Y.Z` or `vX.Y.Z` format, the release workflow builds and publishes archives for:
-
-- Linux `amd64`
-- Linux `arm64`
-- Linux `armv7`
-- macOS `amd64`
-- macOS `arm64`
-- Windows `amd64`
-- Windows `arm64`
-
-Release binaries embed the tag version and the GitHub repository URL so the in-app update check points at [`Landmine-1252/pingtop-go`](https://github.com/Landmine-1252/pingtop-go) automatically.
-
-Example release tags:
-
-- `0.1.0`
-- `v0.1.0`
+Passing one or more positional targets overrides the configured target list for that run only. Those ad hoc runs keep the normal UI or headless behavior, but CSV logging is disabled for that session.
 
 ## Controls
 
-- `q`: quit
-- `p`: pause/resume
-- `l`: cycle logging mode
-- `+` or `=` / `-` or `_`: adjust check interval
-- `>` or `.` / `<` or `,`: adjust UI refresh interval
-- `a`: add a target
-- `d`: delete a target
-- `w`: change around-failure window
-- `t`: change rolling stats window
-- `r`: reset counters
-- `s`: save a snapshot report
-- `u`: open the project release page
-- `h`: show/hide help
+Press `h` in the UI to show or hide the full help panel. Common controls:
 
-## Logging Modes
+- `q` or `Esc`: quit
+- `h`: show or hide help
+- `p`: pause or resume
+- `a` / `d`: add or delete a target
+- `s`: save a snapshot
+- `u`: open the release page
 
-- `all`
-- `failures_only`
-- `around_failure`
+## Release Flow
 
-Around-failure mode keeps a rolling pre-failure buffer and captures post-failure results. Logs rotate automatically when `log_rotation_max_mb` is exceeded.
+Before tagging a release, update [`internal/pingtop/version.go`](internal/pingtop/version.go) so `Version` matches the tag value without the optional leading `v`.
 
-## Update Checks
+Then push either tag format:
 
-If `update_check_enabled` is true and `update_repo_url` points to a GitHub repo, `pingtop` checks the latest release metadata in the background and surfaces availability in the UI. It does not self-update.
+```bash
+git tag 0.1.3
+git push origin 0.1.3
+```
+
+or:
+
+```bash
+git tag v0.1.3
+git push origin v0.1.3
+```
+
+The release workflow verifies that the tag and source version match, runs tests, builds release archives, and attaches them to the GitHub release automatically.
 
 ## Tests
-
-Run the Go test suite with:
 
 ```bash
 go test ./...
 ```
-
-## Current Platform Notes
-
-- Linux/WSL interactive mode is implemented.
-- Windows interactive mode is implemented, including ANSI redraw/color support in modern consoles.
-- Other platforms fall back to headless mode if interactive input is unavailable.
