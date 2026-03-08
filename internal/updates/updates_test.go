@@ -1,6 +1,7 @@
 package updates
 
 import (
+	"sync"
 	"testing"
 	"time"
 
@@ -62,4 +63,45 @@ func TestUpdateManagerMarksAvailableVersion(t *testing.T) {
 	if status.State != "available" || status.LatestVersion != "0.2.0" {
 		t.Fatalf("unexpected update status: %#v", status)
 	}
+}
+
+func TestUpdateManagerRefreshesWhileRunning(t *testing.T) {
+	var mu sync.Mutex
+	latestVersion := "0.1.0"
+	manager := NewUpdateManager(
+		"0.1.0",
+		"https://github.com/Landmine-1252/pingtop-go",
+		true,
+		func(repoURL string, timeout time.Duration) (string, string, error) {
+			mu.Lock()
+			defer mu.Unlock()
+			return latestVersion, "https://github.com/Landmine-1252/pingtop-go/releases/tag/" + latestVersion, nil
+		},
+	)
+	manager.pollInterval = 10 * time.Millisecond
+	manager.Start()
+	defer manager.Stop()
+
+	deadline := time.Now().Add(250 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		if manager.Snapshot().State == "current" {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+
+	mu.Lock()
+	latestVersion = "0.2.0"
+	mu.Unlock()
+
+	deadline = time.Now().Add(250 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		status := manager.Snapshot()
+		if status.State == "available" && status.LatestVersion == "0.2.0" {
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+
+	t.Fatalf("expected periodic refresh to detect new release, got %#v", manager.Snapshot())
 }

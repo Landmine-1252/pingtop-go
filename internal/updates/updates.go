@@ -16,6 +16,8 @@ import (
 
 var versionTagRE = regexp.MustCompile(`^v?(\d+)\.(\d+)\.(\d+)$`)
 
+const defaultUpdateCheckInterval = 5 * time.Minute
+
 type UpdateStatus struct {
 	State          string
 	CurrentVersion string
@@ -151,9 +153,11 @@ type UpdateManager struct {
 	repoURL        string
 	enabled        bool
 	fetcher        releaseFetcher
+	pollInterval   time.Duration
 	mu             sync.RWMutex
 	status         UpdateStatus
 	started        bool
+	stopCh         chan struct{}
 }
 
 func NewUpdateManager(currentVersion, repoURL string, enabled bool, fetcher releaseFetcher) *UpdateManager {
@@ -171,6 +175,8 @@ func NewUpdateManager(currentVersion, repoURL string, enabled bool, fetcher rele
 		repoURL:        normalizedRepoURL,
 		enabled:        active,
 		fetcher:        fetcher,
+		pollInterval:   defaultUpdateCheckInterval,
+		stopCh:         make(chan struct{}),
 		status: UpdateStatus{
 			State:          initialState,
 			CurrentVersion: currentVersion,
@@ -187,9 +193,24 @@ func (manager *UpdateManager) Start() {
 		return
 	}
 	manager.started = true
+	stopCh := manager.stopCh
+	pollInterval := manager.pollInterval
 	manager.mu.Unlock()
 
-	go manager.run()
+	go manager.runLoop(stopCh, pollInterval)
+}
+
+func (manager *UpdateManager) Stop() {
+	manager.mu.Lock()
+	if manager.stopCh == nil {
+		manager.mu.Unlock()
+		return
+	}
+	stopCh := manager.stopCh
+	manager.stopCh = nil
+	manager.mu.Unlock()
+
+	close(stopCh)
 }
 
 func (manager *UpdateManager) Snapshot() UpdateStatus {
@@ -211,6 +232,25 @@ func (manager *UpdateManager) OpenPage() (bool, string) {
 		return false, fmt.Sprintf("Unable to open browser for %s", targetURL)
 	}
 	return true, targetURL
+}
+
+func (manager *UpdateManager) runLoop(stopCh <-chan struct{}, pollInterval time.Duration) {
+	manager.run()
+	if pollInterval <= 0 {
+		return
+	}
+
+	ticker := time.NewTicker(pollInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-stopCh:
+			return
+		case <-ticker.C:
+			manager.run()
+		}
+	}
 }
 
 func (manager *UpdateManager) run() {

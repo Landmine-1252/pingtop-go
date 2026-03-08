@@ -368,6 +368,7 @@ func (ui *PingTopUI) Run() int {
 	ui.renderer.Enter()
 	defer func() {
 		ui.monitor.Stop()
+		ui.updateManager.Stop()
 		ui.renderer.Leave()
 	}()
 
