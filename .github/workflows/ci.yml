@@ -30,5 +30,17 @@ jobs:
           cache: true
           cache-dependency-path: go.mod
 
+      - name: Run test suite with coverage
+        if: matrix.os == 'ubuntu-latest'
+        run: go test ./... -covermode=atomic -coverprofile=coverage.out
+
       - name: Run test suite
+        if: matrix.os != 'ubuntu-latest'
         run: go test ./...
+
+      - name: Upload coverage to Codecov
+        if: matrix.os == 'ubuntu-latest'
+        uses: codecov/codecov-action@v5
+        with:
+          files: coverage.out
+          fail_ci_if_error: false

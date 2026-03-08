@@ -1,4 +1,5 @@
 dist/
+coverage.out
 
 /pingtop
 /pingtop.exe

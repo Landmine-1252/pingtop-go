@@ -34,6 +34,17 @@ jobs:
             exit 1
           fi
 
+          expected_version="${GITHUB_REF_NAME#v}"
+          actual_version="$(sed -n 's/^var Version = \"\\(.*\\)\"$/\\1/p' internal/pingtop/version.go)"
+          if [ -z "${actual_version}" ]; then
+            echo "Unable to read Version from internal/pingtop/version.go"
+            exit 1
+          fi
+          if [ "${actual_version}" != "${expected_version}" ]; then
+            echo "Version mismatch: internal/pingtop/version.go has ${actual_version}, tag is ${expected_version}"
+            exit 1
+          fi
+
       - name: Run test suite
         run: go test ./...
 
