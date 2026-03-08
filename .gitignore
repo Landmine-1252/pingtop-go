@@ -1,0 +1,12 @@
+dist/
+
+pingtop
+pingtop
+pingtop.exe
+pingtop.exe
+*.test
+
+pingtop.json
+pingtop_log.csv
+pingtop_log_*.csv
+pingtop_snapshot_*.txt
