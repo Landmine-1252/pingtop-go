@@ -3,6 +3,7 @@ package app
 import (
 	"flag"
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"os/signal"
@@ -34,6 +35,7 @@ type UpdateStatus = updates.UpdateStatus
 type cliArgs struct {
 	noUI        bool
 	once        bool
+	showHelp    bool
 	showVersion bool
 }
 
@@ -74,6 +76,27 @@ func buildExitSummary(snapshot StateSnapshot) string {
 		snapshot.Session.PingFailures,
 		snapshot.Diagnosis,
 	)
+}
+
+func printInteractiveExitSummary(snapshot StateSnapshot) {
+	renderer := termui.NewRenderer()
+	fmt.Println()
+	fmt.Println(renderer.BuildExitSummary(snapshot))
+}
+
+func writeUsage(output io.Writer) {
+	fmt.Fprintln(output, "Usage: pingtop [flags]")
+	fmt.Fprintln(output)
+	fmt.Fprintln(output, "Flags:")
+	fmt.Fprintln(output, "  -h, --help     show help and exit")
+	fmt.Fprintln(output, "      --no-ui    run in headless text mode")
+	fmt.Fprintln(output, "      --once     run a single cycle and exit")
+	fmt.Fprintln(output, "      --version  print version and exit")
+	fmt.Fprintln(output)
+	fmt.Fprintln(output, "Examples:")
+	fmt.Fprintln(output, "  pingtop")
+	fmt.Fprintln(output, "  pingtop --once")
+	fmt.Fprintln(output, "  pingtop --no-ui")
 }
 
 func printCycleSummary(results []CheckResult, snapshot StateSnapshot) {
@@ -164,19 +187,32 @@ func runHeadless(
 	}
 }
 
-func parseArgs(argv []string) cliArgs {
+func parseArgs(argv []string) (cliArgs, error) {
 	flags := flag.NewFlagSet("pingtop", flag.ContinueOnError)
-	flags.SetOutput(os.Stderr)
+	flags.SetOutput(io.Discard)
 	args := cliArgs{}
+	flags.BoolVar(&args.showHelp, "h", false, "show help and exit")
+	flags.BoolVar(&args.showHelp, "help", false, "show help and exit")
 	flags.BoolVar(&args.noUI, "no-ui", false, "run in headless text mode")
 	flags.BoolVar(&args.once, "once", false, "run a single cycle and exit")
 	flags.BoolVar(&args.showVersion, "version", false, "print version and exit")
-	_ = flags.Parse(argv)
-	return args
+	if err := flags.Parse(argv); err != nil {
+		return args, err
+	}
+	return args, nil
 }
 
 func Run(argv []string) int {
-	args := parseArgs(argv)
+	args, err := parseArgs(argv)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n\n", err)
+		writeUsage(os.Stderr)
+		return 2
+	}
+	if args.showHelp {
+		writeUsage(os.Stdout)
+		return 0
+	}
 	if args.showVersion {
 		fmt.Println(pingtop.Version)
 		return 0
@@ -215,7 +251,7 @@ func Run(argv []string) int {
 		services.updateManager,
 	)
 	result := ui.Run()
-	fmt.Println(buildExitSummary(services.stateStore.Snapshot()))
+	printInteractiveExitSummary(services.stateStore.Snapshot())
 	return result
 }
 
@@ -266,7 +302,7 @@ func NewPingTopUI(
 		updateManager: updateManager,
 		monitor:       NewBackgroundMonitor(configManager, stateStore, logger, coordinator),
 		renderer:      termui.NewRenderer(),
-		helpVisible:   true,
+		helpVisible:   false,
 		running:       true,
 		dirty:         true,
 	}
@@ -371,6 +407,11 @@ func (ui *PingTopUI) handleKey(key string) {
 	}
 	if ui.prompt != nil {
 		ui.handlePromptKey(key)
+		return
+	}
+	if key == "\x1b" {
+		ui.dirty = true
+		ui.running = false
 		return
 	}
 

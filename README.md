@@ -32,6 +32,7 @@ The config schema is intentionally compatible with the Python project.
 From the project folder:
 
 ```bash
+go run . --help
 go run . 
 go run . --once
 go run . --no-ui
@@ -43,6 +44,7 @@ Build a binary for your current platform:
 
 ```bash
 go build -o pingtop
+./pingtop --help
 ./pingtop
 ./pingtop --once
 ./pingtop --no-ui
@@ -52,6 +54,7 @@ Build a Windows executable named `pingtop.exe`:
 
 ```powershell
 go build -o pingtop.exe .
+.\pingtop.exe --help
 .\pingtop.exe
 .\pingtop.exe --once
 .\pingtop.exe --no-ui

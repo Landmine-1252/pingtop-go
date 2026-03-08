@@ -74,6 +74,47 @@ func (renderer *Renderer) Draw(text string) {
 	renderer.lastRenderedLineCount = len(lines)
 }
 
+func (renderer *Renderer) BuildExitSummary(snapshot StateSnapshot) string {
+	width := 72
+	if terminalWidth, _ := TerminalSize(); terminalWidth > 0 {
+		width = minInt(maxInt(56, terminalWidth), 96)
+	}
+	diagnosisColor := renderer.diagnosisColor(snapshot.Diagnosis, false)
+	title := renderer.style("pingtop", "green", true, false) + "  " + renderer.style("Session summary", "cyan", true, false)
+	lines := []string{
+		title,
+		renderer.rule(width, "="),
+		renderer.diagnosisBanner(snapshot.Diagnosis, width, diagnosisColor),
+	}
+	lines = append(lines,
+		renderer.wrapPairs("Session", []textPair{
+			renderer.kvPair("cycles", abbreviateCount(snapshot.Session.CyclesCompleted), "white", ""),
+			renderer.kvPair("checks", abbreviateCount(snapshot.Session.TotalChecks), "white", ""),
+			renderer.kvPair("ok", abbreviateCount(snapshot.Session.Successes), "white", "green"),
+			renderer.kvPair("fail", abbreviateCount(snapshot.Session.Failures), "white", ternaryString(snapshot.Session.Failures > 0, "red", "green")),
+			renderer.kvPair("dns", abbreviateCount(snapshot.Session.DNSFailures), "white", ternaryString(snapshot.Session.DNSFailures > 0, "yellow", "green")),
+			renderer.kvPair("ping", abbreviateCount(snapshot.Session.PingFailures), "white", ternaryString(snapshot.Session.PingFailures > 0, "yellow", "green")),
+		}, width, "cyan")...,
+	)
+	if !snapshot.LastCycleCompletedAt.IsZero() {
+		durationSegments := []textPair{
+			renderer.kvPair("completed", formatTimestampShort(snapshot.LastCycleCompletedAt), "white", ""),
+		}
+		if !snapshot.Session.StartedAt.IsZero() && !snapshot.LastCycleCompletedAt.Before(snapshot.Session.StartedAt) {
+			durationSegments = append(durationSegments, renderer.kvPair(
+				"ran",
+				formatCompactSpan(maxInt(0, int(snapshot.LastCycleCompletedAt.Sub(snapshot.Session.StartedAt).Seconds()+0.5))),
+				"white",
+				"",
+			))
+		}
+		lines = append(lines,
+			renderer.wrapPairs("Last", durationSegments, width, "cyan")...,
+		)
+	}
+	return strings.Join(lines, "\n")
+}
+
 func (renderer *Renderer) BuildScreen(
 	snapshot StateSnapshot,
 	config AppConfig,
@@ -103,16 +144,7 @@ func (renderer *Renderer) BuildScreen(
 	visibleEvents := renderer.interestingEvents(snapshot.RecentEvents)
 	shownEventCount := minInt(len(visibleEvents), config.VisibleEventLines)
 
-	diagnosisLower := strings.ToLower(snapshot.Diagnosis)
-	statusColor := "red"
-	switch {
-	case paused || strings.Contains(diagnosisLower, "waiting") || strings.Contains(diagnosisLower, "no targets"):
-		statusColor = "yellow"
-	case strings.Contains(diagnosisLower, "suspected") || strings.Contains(diagnosisLower, "confirming") || strings.Contains(diagnosisLower, "recovery observed"):
-		statusColor = "yellow"
-	case strings.Contains(diagnosisLower, "reachable"):
-		statusColor = "green"
-	}
+	statusColor := renderer.diagnosisColor(snapshot.Diagnosis, paused)
 
 	headerLines := []string{renderer.style("pingtop", "green", true, false)}
 	headerLines = append(headerLines, renderer.diagnosisBanner(snapshot.Diagnosis, width, statusColor))
@@ -168,9 +200,9 @@ func (renderer *Renderer) BuildScreen(
 	if helpVisible {
 		footerLines = append(footerLines,
 			renderer.wrapPairs("Controls", []textPair{
-				renderer.shortcutPair("q", "quit"),
+				renderer.shortcutPair("q/Esc", "quit"),
 				renderer.shortcutPair("p", "pause"),
-				renderer.shortcutPair("h", "help"),
+				renderer.shortcutPair("h", "hide help"),
 				renderer.shortcutPair("s", "snapshot"),
 				renderer.shortcutPair("r", "reset"),
 				renderer.shortcutPair("u", "updates"),
@@ -202,7 +234,7 @@ func (renderer *Renderer) BuildScreen(
 		footerLines = append(footerLines,
 			renderer.wrapPairs("Help", []textPair{
 				renderer.shortcutPair("h", "show help"),
-				renderer.shortcutPair("q", "quit"),
+				renderer.shortcutPair("q/Esc", "quit"),
 			}, width, "cyan")...,
 		)
 	}
@@ -312,6 +344,20 @@ func (renderer *Renderer) rule(width int, char string) string {
 func (renderer *Renderer) diagnosisBanner(diagnosis string, width int, color string) string {
 	label := renderer.style("Diagnosis", color, true, false)
 	return label + "  " + renderer.style(shorten(diagnosis, maxInt(1, width-11)), color, true, false)
+}
+
+func (renderer *Renderer) diagnosisColor(diagnosis string, paused bool) string {
+	diagnosisLower := strings.ToLower(diagnosis)
+	switch {
+	case paused || strings.Contains(diagnosisLower, "waiting") || strings.Contains(diagnosisLower, "no targets"):
+		return "yellow"
+	case strings.Contains(diagnosisLower, "suspected") || strings.Contains(diagnosisLower, "confirming") || strings.Contains(diagnosisLower, "recovery observed"):
+		return "yellow"
+	case strings.Contains(diagnosisLower, "reachable"):
+		return "green"
+	default:
+		return "red"
+	}
 }
 
 func (renderer *Renderer) sectionTitle(title, subtitle string, width int) string {
