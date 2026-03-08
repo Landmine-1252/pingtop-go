@@ -27,6 +27,7 @@ type AppConfig struct {
 	CheckIntervalSeconds     float64      `json:"check_interval_seconds"`
 	PingTimeoutMS            int          `json:"ping_timeout_ms"`
 	UIRefreshIntervalSeconds float64      `json:"ui_refresh_interval_seconds"`
+	HelpVisible              bool         `json:"help_visible"`
 	StatsWindowSeconds       int          `json:"stats_window_seconds"`
 	UpdateCheckEnabled       bool         `json:"update_check_enabled"`
 	UpdateRepoURL            string       `json:"update_repo_url"`
@@ -57,6 +58,7 @@ func defaultConfig() AppConfig {
 		CheckIntervalSeconds:     1.0,
 		PingTimeoutMS:            1200,
 		UIRefreshIntervalSeconds: 0.5,
+		HelpVisible:              true,
 		StatsWindowSeconds:       3600,
 		UpdateCheckEnabled:       true,
 		UpdateRepoURL:            DefaultUpdateRepoURL,
@@ -257,6 +259,7 @@ func configFromMap(data map[string]any) AppConfig {
 		CheckIntervalSeconds:     asFloat(data["check_interval_seconds"], base.CheckIntervalSeconds),
 		PingTimeoutMS:            asInt(data["ping_timeout_ms"], base.PingTimeoutMS),
 		UIRefreshIntervalSeconds: asFloat(data["ui_refresh_interval_seconds"], base.UIRefreshIntervalSeconds),
+		HelpVisible:              asBool(data["help_visible"], base.HelpVisible),
 		StatsWindowSeconds:       asInt(data["stats_window_seconds"], base.StatsWindowSeconds),
 		UpdateCheckEnabled:       asBool(data["update_check_enabled"], base.UpdateCheckEnabled),
 		UpdateRepoURL:            asString(data["update_repo_url"], base.UpdateRepoURL),

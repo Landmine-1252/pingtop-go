@@ -39,6 +39,7 @@ func TestConfigNormalizesAndDeduplicatesTargets(t *testing.T) {
 		"check_interval_seconds":        0.1,
 		"ping_timeout_ms":               999999,
 		"ui_refresh_interval_seconds":   10.0,
+		"help_visible":                  false,
 		"stats_window_seconds":          5,
 		"diagnosis_confirm_cycles":      0,
 		"recovery_confirm_cycles":       99,
@@ -61,6 +62,9 @@ func TestConfigNormalizesAndDeduplicatesTargets(t *testing.T) {
 
 	if config.CheckIntervalSeconds != 0.5 {
 		t.Fatalf("unexpected check interval: %v", config.CheckIntervalSeconds)
+	}
+	if config.HelpVisible {
+		t.Fatal("expected help visibility override to be preserved")
 	}
 	if config.PingTimeoutMS != 30000 {
 		t.Fatalf("unexpected ping timeout: %d", config.PingTimeoutMS)
@@ -128,6 +132,18 @@ func TestDefaultConfigUsesEmbeddedUpdateRepoURL(t *testing.T) {
 	config := defaultConfig()
 	if config.UpdateRepoURL != DefaultUpdateRepoURL {
 		t.Fatalf("expected embedded update repo url %q, got %q", DefaultUpdateRepoURL, config.UpdateRepoURL)
+	}
+	if !config.HelpVisible {
+		t.Fatal("expected help to be visible by default")
+	}
+}
+
+func TestConfigFromMapDefaultsHelpVisibleForOlderConfigs(t *testing.T) {
+	config := configFromMap(map[string]any{
+		"targets": []any{"1.1.1.1"},
+	})
+	if !config.HelpVisible {
+		t.Fatal("expected help to default to visible when field is missing")
 	}
 }
 

@@ -352,7 +352,7 @@ func NewPingTopUI(
 		updateManager: updateManager,
 		monitor:       NewBackgroundMonitor(configManager, stateStore, logger, coordinator),
 		renderer:      termui.NewRenderer(),
-		helpVisible:   false,
+		helpVisible:   configManager.Snapshot().HelpVisible,
 		running:       true,
 		dirty:         true,
 	}
@@ -506,7 +506,10 @@ func (ui *PingTopUI) handleKey(key string) {
 		ui.openUpdatePage()
 	case "h":
 		ui.dirty = true
-		ui.helpVisible = !ui.helpVisible
+		config := ui.configManager.Update(func(config *pingtop.AppConfig) {
+			config.HelpVisible = !ui.helpVisible
+		})
+		ui.helpVisible = config.HelpVisible
 	default:
 		switch key {
 		case "+", "=":

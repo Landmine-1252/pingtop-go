@@ -192,6 +192,72 @@ func TestHandleKeyEscCancelsPromptWithoutQuitting(t *testing.T) {
 	}
 }
 
+func TestNewPingTopUIDefaultsHelpVisibleFromConfig(t *testing.T) {
+	tempDir := t.TempDir()
+	services, err := buildServices(pingtop.RuntimePaths{
+		ConfigPath: filepath.Join(tempDir, "pingtop.json"),
+		LogPath:    filepath.Join(tempDir, "pingtop_log.csv"),
+	}, cliArgs{})
+	if err != nil {
+		t.Fatalf("unexpected buildServices error: %v", err)
+	}
+	defer services.coordinator.Close()
+
+	ui := NewPingTopUI(
+		services.runtimePaths,
+		services.configManager,
+		services.stateStore,
+		services.logger,
+		services.coordinator,
+		services.updateManager,
+	)
+
+	if !ui.helpVisible {
+		t.Fatal("expected help to be visible by default")
+	}
+}
+
+func TestHandleKeyHTogglesAndPersistsHelpVisibility(t *testing.T) {
+	tempDir := t.TempDir()
+	services, err := buildServices(pingtop.RuntimePaths{
+		ConfigPath: filepath.Join(tempDir, "pingtop.json"),
+		LogPath:    filepath.Join(tempDir, "pingtop_log.csv"),
+	}, cliArgs{})
+	if err != nil {
+		t.Fatalf("unexpected buildServices error: %v", err)
+	}
+	defer services.coordinator.Close()
+
+	ui := NewPingTopUI(
+		services.runtimePaths,
+		services.configManager,
+		services.stateStore,
+		services.logger,
+		services.coordinator,
+		services.updateManager,
+	)
+
+	ui.handleKey("h")
+	if ui.helpVisible {
+		t.Fatal("expected h to hide help")
+	}
+	if services.configManager.Snapshot().HelpVisible {
+		t.Fatal("expected help visibility change to persist to config")
+	}
+
+	reopened := NewPingTopUI(
+		services.runtimePaths,
+		services.configManager,
+		services.stateStore,
+		services.logger,
+		services.coordinator,
+		services.updateManager,
+	)
+	if reopened.helpVisible {
+		t.Fatal("expected reopened UI to use saved hidden help state")
+	}
+}
+
 func captureStdout(t *testing.T, run func() int) string {
 	t.Helper()
 	reader, writer, err := os.Pipe()

@@ -70,7 +70,7 @@ Passing one or more positional targets overrides the configured target list for 
 
 ## Controls
 
-Press `h` in the UI to show or hide the full help panel. Common controls:
+The interactive UI starts with help visible by default and remembers the last help visibility choice in `pingtop.json`. Press `h` to show or hide the full help panel. Common controls:
 
 - `q` or `Esc`: quit
 - `h`: show or hide help
