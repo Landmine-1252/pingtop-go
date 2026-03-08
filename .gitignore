@@ -1,9 +1,7 @@
 dist/
 
-pingtop
-pingtop
-pingtop.exe
-pingtop.exe
+/pingtop
+/pingtop.exe
 *.test
 
 pingtop.json
