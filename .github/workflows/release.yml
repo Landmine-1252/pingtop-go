@@ -35,9 +35,15 @@ jobs:
           fi
 
           expected_version="${GITHUB_REF_NAME#v}"
-          actual_version="$(sed -n 's/^var Version = \"\\(.*\\)\"$/\\1/p' internal/pingtop/version.go)"
+          actual_version="$(
+            tr -d '\r' < internal/pingtop/version.go \
+              | sed -n 's/^[[:space:]]*var[[:space:]]\+Version\([[:space:]]\+[[:alnum:]_.]*\)\{0,1\}[[:space:]]*=[[:space:]]*"\([^"]*\)".*$/\2/p' \
+              | head -n 1
+          )"
           if [ -z "${actual_version}" ]; then
             echo "Unable to read Version from internal/pingtop/version.go"
+            echo "Relevant lines from internal/pingtop/version.go:"
+            grep -n 'Version' internal/pingtop/version.go || true
             exit 1
           fi
           if [ "${actual_version}" != "${expected_version}" ]; then

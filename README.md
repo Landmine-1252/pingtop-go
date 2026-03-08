@@ -1,15 +1,19 @@
 # pingtop
 
-[![CI](https://img.shields.io/github/actions/workflow/status/landmine-1252/pingtop-go/ci.yml?branch=main&label=ci&logo=githubactions)](https://github.com/Landmine-1252/pingtop-go/actions/workflows/ci.yml)
-[![Go Version](https://img.shields.io/github/go-mod/go-version/landmine-1252/pingtop-go?logo=go)](https://github.com/Landmine-1252/pingtop-go/blob/main/go.mod)
-[![Release](https://img.shields.io/github/v/release/landmine-1252/pingtop-go?display_name=tag&sort=semver&logo=github)](https://github.com/Landmine-1252/pingtop-go/releases)
-[![Coverage](https://img.shields.io/codecov/c/github/landmine-1252/pingtop-go?logo=codecov)](https://app.codecov.io/gh/landmine-1252/pingtop-go)
-[![Go Report Card](https://goreportcard.com/badge/github.com/landmine-1252/pingtop-go)](https://goreportcard.com/report/github.com/landmine-1252/pingtop-go)
-[![Downloads](https://img.shields.io/github/downloads/landmine-1252/pingtop-go/latest/total?logo=github)](https://github.com/Landmine-1252/pingtop-go/releases)
-[![Platforms](https://img.shields.io/badge/platform-linux%20%7C%20macOS%20%7C%20windows-1f2937)](https://github.com/Landmine-1252/pingtop-go/releases)
-[![Arch](https://img.shields.io/badge/arch-amd64%20%7C%20arm64%20%7C%20armv7-2563eb)](https://github.com/Landmine-1252/pingtop-go/releases)
+<p>
+  <a href="https://github.com/Landmine-1252/pingtop-go/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/landmine-1252/pingtop-go/ci.yml?branch=main&label=ci&logo=githubactions"></a>
+  <a href="https://github.com/Landmine-1252/pingtop-go/blob/main/go.mod"><img alt="Go Version" src="https://img.shields.io/github/go-mod/go-version/landmine-1252/pingtop-go?logo=go"></a>
+  <a href="https://goreportcard.com/report/github.com/landmine-1252/pingtop-go"><img alt="Go Report Card" src="https://goreportcard.com/badge/github.com/landmine-1252/pingtop-go"></a>
+</p>
 
-`pingtop` is a Go rewrite of the original Python [`pingtop`](https://github.com/Landmine-1252/pingtop). The Go code, releases, and CI live in [`Landmine-1252/pingtop-go`](https://github.com/Landmine-1252/pingtop-go).
+<p>
+  <a href="https://github.com/Landmine-1252/pingtop-go/releases"><img alt="Release" src="https://img.shields.io/github/v/release/landmine-1252/pingtop-go?display_name=tag&sort=semver&logo=github"></a>
+  <a href="https://github.com/Landmine-1252/pingtop-go/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/landmine-1252/pingtop-go/latest/total?logo=github"></a>
+  <a href="https://github.com/Landmine-1252/pingtop-go/releases"><img alt="Platforms" src="https://img.shields.io/badge/platform-linux%20%7C%20macOS%20%7C%20windows-1f2937"></a>
+  <a href="https://github.com/Landmine-1252/pingtop-go/releases"><img alt="Arch" src="https://img.shields.io/badge/arch-amd64%20%7C%20arm64%20%7C%20armv7-2563eb"></a>
+</p>
+
+`pingtop` is a Go rewrite of the original Python [`pingtop`](https://github.com/Landmine-1252/pingtop).
 
 ![pingtop demo](demo.gif)
 
