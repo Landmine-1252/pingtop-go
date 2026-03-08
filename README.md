@@ -33,9 +33,12 @@ From the project folder:
 
 ```bash
 go run . --help
+go run . -v
 go run . 
-go run . --once
-go run . --no-ui
+go run . -o
+go run . -n
+go run . 1.1.1.1
+go run . example.com 1.1.1.1
 ```
 
 ## Build Locally
@@ -45,9 +48,12 @@ Build a binary for your current platform:
 ```bash
 go build -o pingtop
 ./pingtop --help
+./pingtop -v
 ./pingtop
-./pingtop --once
-./pingtop --no-ui
+./pingtop -o
+./pingtop -n
+./pingtop 1.1.1.1
+./pingtop example.com 1.1.1.1
 ```
 
 Build a Windows executable named `pingtop.exe`:
@@ -55,10 +61,15 @@ Build a Windows executable named `pingtop.exe`:
 ```powershell
 go build -o pingtop.exe .
 .\pingtop.exe --help
+.\pingtop.exe -v
 .\pingtop.exe
-.\pingtop.exe --once
-.\pingtop.exe --no-ui
+.\pingtop.exe -o
+.\pingtop.exe -n
+.\pingtop.exe 1.1.1.1
+.\pingtop.exe example.com 1.1.1.1
 ```
+
+Passing one or more positional targets runs `pingtop` against only those targets for that session. Command-line target runs keep the normal UI/headless behavior, but CSV logging is disabled for that run.
 
 Prebuilt binaries can also be published from [GitHub Releases](https://github.com/Landmine-1252/pingtop-go/releases).
 

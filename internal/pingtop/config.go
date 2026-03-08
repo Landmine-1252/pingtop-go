@@ -137,6 +137,14 @@ func NewConfigManager(path string) *ConfigManager {
 	return manager
 }
 
+func NewTransientConfigManager(config AppConfig) *ConfigManager {
+	config.Normalize()
+	return &ConfigManager{
+		config:   config,
+		revision: 1,
+	}
+}
+
 func (manager *ConfigManager) LoadWarning() string {
 	manager.mu.RLock()
 	defer manager.mu.RUnlock()
@@ -215,6 +223,9 @@ func LoggingModes() []string {
 }
 
 func (manager *ConfigManager) write(config AppConfig) error {
+	if manager.path == "" {
+		return nil
+	}
 	if err := os.MkdirAll(filepath.Dir(manager.path), 0o755); err != nil {
 		return err
 	}

@@ -43,6 +43,12 @@ func NewCSVLogger(path string) *CSVLogger {
 	return logger
 }
 
+func NewDisabledCSVLogger() *CSVLogger {
+	return &CSVLogger{
+		buffer: make([]BufferedLogResult, 0, 128),
+	}
+}
+
 func (logger *CSVLogger) ensureHeader() {
 	if info, err := os.Stat(logger.path); err == nil && info.Size() > 0 {
 		return
@@ -61,6 +67,9 @@ func (logger *CSVLogger) ensureHeader() {
 }
 
 func (logger *CSVLogger) LogResults(results []CheckResult, config AppConfig) {
+	if logger.path == "" {
+		return
+	}
 	logger.mu.Lock()
 	defer logger.mu.Unlock()
 

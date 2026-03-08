@@ -62,12 +62,89 @@ func TestRunShortHelpPrintsUsage(t *testing.T) {
 	}
 }
 
-func TestHandleKeyEscQuitsWhenNoPromptIsActive(t *testing.T) {
+func TestRunShortVersionPrintsVersion(t *testing.T) {
+	output := captureStdout(t, func() int {
+		return Run([]string{"-v"})
+	})
+	if !strings.Contains(output, pingtop.Version) {
+		t.Fatalf("expected version output, got %q", output)
+	}
+}
+
+func TestParseArgsSupportsShortAliases(t *testing.T) {
+	args, err := parseArgs([]string{"-n", "-o", "-v"})
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	if !args.noUI {
+		t.Fatal("expected -n to enable no-ui mode")
+	}
+	if !args.once {
+		t.Fatal("expected -o to enable once mode")
+	}
+	if !args.showVersion {
+		t.Fatal("expected -v to enable version output")
+	}
+}
+
+func TestParseArgsCapturesPositionalTargets(t *testing.T) {
+	args, err := parseArgs([]string{"-n", "example.com", "1.1.1.1"})
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	if !args.noUI {
+		t.Fatal("expected -n to enable no-ui mode")
+	}
+	if len(args.targets) != 2 || args.targets[0] != "example.com" || args.targets[1] != "1.1.1.1" {
+		t.Fatalf("unexpected targets: %#v", args.targets)
+	}
+}
+
+func TestBuildServicesWithPositionalTargetsDisablesLogging(t *testing.T) {
 	tempDir := t.TempDir()
-	services := buildServices(pingtop.RuntimePaths{
+	runtimePaths := pingtop.RuntimePaths{
 		ConfigPath: filepath.Join(tempDir, "pingtop.json"),
 		LogPath:    filepath.Join(tempDir, "pingtop_log.csv"),
-	})
+	}
+	services, err := buildServices(runtimePaths, cliArgs{targets: []string{"example.com", "1.1.1.1"}})
+	if err != nil {
+		t.Fatalf("unexpected buildServices error: %v", err)
+	}
+	defer services.coordinator.Close()
+
+	config := services.configManager.Snapshot()
+	if len(config.Targets) != 2 || config.Targets[0].Value != "example.com" || config.Targets[1].Value != "1.1.1.1" {
+		t.Fatalf("unexpected configured targets: %#v", config.Targets)
+	}
+
+	success := true
+	latency := 12.0
+	services.logger.LogResults([]CheckResult{{
+		CycleID:       1,
+		Timestamp:     pingtop.NewSessionTotals().StartedAt,
+		Target:        "example.com",
+		TargetType:    "hostname",
+		ResolvedIP:    "93.184.216.34",
+		DNSSuccess:    &success,
+		PingSuccess:   true,
+		LatencyMS:     &latency,
+		ErrorCategory: "ok",
+	}}, config)
+
+	if _, err := os.Stat(runtimePaths.LogPath); !os.IsNotExist(err) {
+		t.Fatalf("expected positional-target run to avoid creating log file, got err=%v", err)
+	}
+}
+
+func TestHandleKeyEscQuitsWhenNoPromptIsActive(t *testing.T) {
+	tempDir := t.TempDir()
+	services, err := buildServices(pingtop.RuntimePaths{
+		ConfigPath: filepath.Join(tempDir, "pingtop.json"),
+		LogPath:    filepath.Join(tempDir, "pingtop_log.csv"),
+	}, cliArgs{})
+	if err != nil {
+		t.Fatalf("unexpected buildServices error: %v", err)
+	}
 	defer services.coordinator.Close()
 
 	ui := NewPingTopUI(
@@ -87,10 +164,13 @@ func TestHandleKeyEscQuitsWhenNoPromptIsActive(t *testing.T) {
 
 func TestHandleKeyEscCancelsPromptWithoutQuitting(t *testing.T) {
 	tempDir := t.TempDir()
-	services := buildServices(pingtop.RuntimePaths{
+	services, err := buildServices(pingtop.RuntimePaths{
 		ConfigPath: filepath.Join(tempDir, "pingtop.json"),
 		LogPath:    filepath.Join(tempDir, "pingtop_log.csv"),
-	})
+	}, cliArgs{})
+	if err != nil {
+		t.Fatalf("unexpected buildServices error: %v", err)
+	}
 	defer services.coordinator.Close()
 
 	ui := NewPingTopUI(

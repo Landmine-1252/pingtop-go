@@ -37,6 +37,7 @@ type cliArgs struct {
 	once        bool
 	showHelp    bool
 	showVersion bool
+	targets     []string
 }
 
 type AppServices struct {
@@ -46,23 +47,6 @@ type AppServices struct {
 	logger        *CSVLogger
 	coordinator   *CheckCoordinator
 	updateManager *UpdateManager
-}
-
-func buildServices(runtimePaths RuntimePaths) AppServices {
-	configManager := pingtop.NewConfigManager(runtimePaths.ConfigPath)
-	stateStore := pingtop.NewStateStore(configManager.Snapshot())
-	logger := pingtop.NewCSVLogger(runtimePaths.LogPath)
-	coordinator := checks.NewCheckCoordinator(checks.NewPingRunner(), nil)
-	config := configManager.Snapshot()
-	updateManager := updates.NewUpdateManager("v"+pingtop.Version, config.UpdateRepoURL, config.UpdateCheckEnabled, nil)
-	return AppServices{
-		runtimePaths:  runtimePaths,
-		configManager: configManager,
-		stateStore:    stateStore,
-		logger:        logger,
-		coordinator:   coordinator,
-		updateManager: updateManager,
-	}
 }
 
 func buildExitSummary(snapshot StateSnapshot) string {
@@ -85,18 +69,26 @@ func printInteractiveExitSummary(snapshot StateSnapshot) {
 }
 
 func writeUsage(output io.Writer) {
-	fmt.Fprintln(output, "Usage: pingtop [flags]")
+	fmt.Fprintln(output, "Usage: pingtop [flags] [target ...]")
 	fmt.Fprintln(output)
 	fmt.Fprintln(output, "Flags:")
 	fmt.Fprintln(output, "  -h, --help     show help and exit")
-	fmt.Fprintln(output, "      --no-ui    run in headless text mode")
-	fmt.Fprintln(output, "      --once     run a single cycle and exit")
-	fmt.Fprintln(output, "      --version  print version and exit")
+	fmt.Fprintln(output, "  -n, --no-ui    run in headless text mode")
+	fmt.Fprintln(output, "  -o, --once     run a single cycle and exit")
+	fmt.Fprintln(output, "  -v, --version  print version and exit")
+	fmt.Fprintln(output)
+	fmt.Fprintln(output, "Positional targets:")
+	fmt.Fprintln(output, "  One or more hostnames or IPs to monitor for this run only.")
+	fmt.Fprintln(output, "  When targets are passed on the command line, CSV logging is disabled.")
 	fmt.Fprintln(output)
 	fmt.Fprintln(output, "Examples:")
 	fmt.Fprintln(output, "  pingtop")
-	fmt.Fprintln(output, "  pingtop --once")
-	fmt.Fprintln(output, "  pingtop --no-ui")
+	fmt.Fprintln(output, "  pingtop -v")
+	fmt.Fprintln(output, "  pingtop -o")
+	fmt.Fprintln(output, "  pingtop -n")
+	fmt.Fprintln(output, "  pingtop 1.1.1.1")
+	fmt.Fprintln(output, "  pingtop example.com 1.1.1.1")
+	fmt.Fprintln(output, "  pingtop -n example.com 1.1.1.1")
 }
 
 func printCycleSummary(results []CheckResult, snapshot StateSnapshot) {
@@ -193,13 +185,66 @@ func parseArgs(argv []string) (cliArgs, error) {
 	args := cliArgs{}
 	flags.BoolVar(&args.showHelp, "h", false, "show help and exit")
 	flags.BoolVar(&args.showHelp, "help", false, "show help and exit")
+	flags.BoolVar(&args.noUI, "n", false, "run in headless text mode")
 	flags.BoolVar(&args.noUI, "no-ui", false, "run in headless text mode")
+	flags.BoolVar(&args.once, "o", false, "run a single cycle and exit")
 	flags.BoolVar(&args.once, "once", false, "run a single cycle and exit")
+	flags.BoolVar(&args.showVersion, "v", false, "print version and exit")
 	flags.BoolVar(&args.showVersion, "version", false, "print version and exit")
 	if err := flags.Parse(argv); err != nil {
 		return args, err
 	}
+	args.targets = append([]string(nil), flags.Args()...)
 	return args, nil
+}
+
+func parseTargetArgs(values []string) ([]TargetSpec, error) {
+	targets := make([]TargetSpec, 0, len(values))
+	seen := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		target, err := pingtop.InferTarget(value)
+		if err != nil {
+			return nil, fmt.Errorf("invalid target %q: %w", value, err)
+		}
+		key := target.Kind + ":" + target.Value
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		targets = append(targets, target)
+	}
+	return targets, nil
+}
+
+func buildServices(runtimePaths RuntimePaths, args cliArgs) (AppServices, error) {
+	configManager := pingtop.NewConfigManager(runtimePaths.ConfigPath)
+	config := configManager.Snapshot()
+	logger := pingtop.NewDisabledCSVLogger()
+	if len(args.targets) > 0 {
+		targets, err := parseTargetArgs(args.targets)
+		if err != nil {
+			return AppServices{}, err
+		}
+		config.Targets = targets
+		configManager = pingtop.NewTransientConfigManager(config)
+	} else {
+		logger = pingtop.NewCSVLogger(runtimePaths.LogPath)
+	}
+	stateStore := pingtop.NewStateStore(configManager.Snapshot())
+	if len(args.targets) > 0 {
+		stateStore.AddEvent("info", fmt.Sprintf("Using command-line targets (%d); CSV logging disabled", len(config.Targets)), time.Time{})
+	}
+	coordinator := checks.NewCheckCoordinator(checks.NewPingRunner(), nil)
+	config = configManager.Snapshot()
+	updateManager := updates.NewUpdateManager("v"+pingtop.Version, config.UpdateRepoURL, config.UpdateCheckEnabled, nil)
+	return AppServices{
+		runtimePaths:  runtimePaths,
+		configManager: configManager,
+		stateStore:    stateStore,
+		logger:        logger,
+		coordinator:   coordinator,
+		updateManager: updateManager,
+	}, nil
 }
 
 func Run(argv []string) int {
@@ -218,7 +263,12 @@ func Run(argv []string) int {
 		return 0
 	}
 
-	services := buildServices(pingtop.ResolveRuntimePaths())
+	services, err := buildServices(pingtop.ResolveRuntimePaths(), args)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n\n", err)
+		writeUsage(os.Stderr)
+		return 2
+	}
 	defer services.coordinator.Close()
 
 	if args.noUI || args.once {
