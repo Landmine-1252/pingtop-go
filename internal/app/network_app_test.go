@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"pingtop/internal/checks"
-	"pingtop/internal/pingtop"
+	"github.com/Landmine-1252/pingtop-go/internal/checks"
+	"github.com/Landmine-1252/pingtop-go/internal/pingtop"
 )
 
 func TestRunHeadlessOncePrintsSummary(t *testing.T) {

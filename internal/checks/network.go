@@ -14,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	"pingtop/internal/pingtop"
+	"github.com/Landmine-1252/pingtop-go/internal/pingtop"
 )
 
 type AppConfig = pingtop.AppConfig

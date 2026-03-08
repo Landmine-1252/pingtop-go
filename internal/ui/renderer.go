@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"pingtop/internal/pingtop"
-	"pingtop/internal/updates"
+	"github.com/Landmine-1252/pingtop-go/internal/pingtop"
+	"github.com/Landmine-1252/pingtop-go/internal/updates"
 )
 
 type AppConfig = pingtop.AppConfig

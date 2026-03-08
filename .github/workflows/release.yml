@@ -110,7 +110,7 @@ jobs:
 
           go build \
             -trimpath \
-            -ldflags "-s -w -X pingtop/internal/pingtop.Version=${version} -X pingtop/internal/pingtop.DefaultUpdateRepoURL=${REPOSITORY_URL}" \
+            -ldflags "-s -w -X github.com/Landmine-1252/pingtop-go/internal/pingtop.Version=${version} -X github.com/Landmine-1252/pingtop-go/internal/pingtop.DefaultUpdateRepoURL=${REPOSITORY_URL}" \
             -o "${staging_dir}/${binary_name}" \
             .
 

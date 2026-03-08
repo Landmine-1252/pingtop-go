@@ -4,17 +4,17 @@ import (
 	"testing"
 	"time"
 
-	"pingtop/internal/pingtop"
+	"github.com/Landmine-1252/pingtop-go/internal/pingtop"
 )
 
 func TestVersionHelpers(t *testing.T) {
 	if _, _, _, ok := parseVersionTag("v" + pingtop.Version); !ok {
 		t.Fatalf("expected version tag to parse: %s", pingtop.Version)
 	}
-	if normalizeRepoURL("https://github.com/Landmine-1252/pingtop.git") != "https://github.com/Landmine-1252/pingtop" {
+	if normalizeRepoURL("https://github.com/Landmine-1252/pingtop-go.git") != "https://github.com/Landmine-1252/pingtop-go" {
 		t.Fatal("failed to normalize https repo url")
 	}
-	if normalizeRepoURL("git@github.com:Landmine-1252/pingtop.git") != "https://github.com/Landmine-1252/pingtop" {
+	if normalizeRepoURL("git@github.com:Landmine-1252/pingtop-go.git") != "https://github.com/Landmine-1252/pingtop-go" {
 		t.Fatal("failed to normalize ssh repo url")
 	}
 	if !isNewerVersion("v0.1.0", "v0.2.0") {
@@ -26,11 +26,11 @@ func TestVersionHelpers(t *testing.T) {
 }
 
 func TestBuildReleaseAPIURLRequiresGitHubRepo(t *testing.T) {
-	url, err := buildReleaseAPIURL("https://github.com/Landmine-1252/pingtop")
+	url, err := buildReleaseAPIURL("https://github.com/Landmine-1252/pingtop-go")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	expected := "https://api.github.com/repos/Landmine-1252/pingtop/releases/latest"
+	expected := "https://api.github.com/repos/Landmine-1252/pingtop-go/releases/latest"
 	if url != expected {
 		t.Fatalf("unexpected api url: %q", url)
 	}
@@ -42,10 +42,10 @@ func TestBuildReleaseAPIURLRequiresGitHubRepo(t *testing.T) {
 func TestUpdateManagerMarksAvailableVersion(t *testing.T) {
 	manager := NewUpdateManager(
 		"v0.1.0",
-		"https://github.com/Landmine-1252/pingtop",
+		"https://github.com/Landmine-1252/pingtop-go",
 		true,
 		func(repoURL string, timeout time.Duration) (string, string, error) {
-			return "v0.2.0", "https://github.com/Landmine-1252/pingtop/releases/tag/v0.2.0", nil
+			return "v0.2.0", "https://github.com/Landmine-1252/pingtop-go/releases/tag/v0.2.0", nil
 		},
 	)
 	manager.run()

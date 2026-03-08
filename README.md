@@ -1,6 +1,8 @@
 # pingtop
 
-`pingtop` is a Go rewrite of the original Python `pingtop` monitor. It keeps the same practical operator workflow:
+`pingtop` is a Go rewrite of the original Python [`pingtop`](https://github.com/Landmine-1252/pingtop) monitor. The Go project and releases live at [`Landmine-1252/pingtop-go`](https://github.com/Landmine-1252/pingtop-go).
+
+It keeps the same practical operator workflow:
 
 - classify intermittent issues into general network, DNS, or isolated path failures
 - ping configured IP and hostname targets on a schedule
@@ -55,7 +57,7 @@ go build -o pingtop.exe .
 .\pingtop.exe --no-ui
 ```
 
-Prebuilt binaries can also be published from GitHub Releases.
+Prebuilt binaries can also be published from [GitHub Releases](https://github.com/Landmine-1252/pingtop-go/releases).
 
 ## GitHub Releases
 
@@ -69,7 +71,7 @@ When you push a tag in `vX.Y.Z` format, the release workflow builds and publishe
 - Windows `amd64`
 - Windows `arm64`
 
-Release binaries embed the tag version and the GitHub repository URL so the in-app update check points at the public repo automatically.
+Release binaries embed the tag version and the GitHub repository URL so the in-app update check points at [`Landmine-1252/pingtop-go`](https://github.com/Landmine-1252/pingtop-go) automatically.
 
 ## Controls
 
