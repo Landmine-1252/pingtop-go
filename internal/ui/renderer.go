@@ -224,13 +224,6 @@ func (renderer *Renderer) BuildScreen(
 				renderer.shortcutPair("d", "delete"),
 			}, width, "cyan")...,
 		)
-		footerLines = append(footerLines,
-			renderer.wrapPairs("Prompt", []textPair{
-				{plain: "Enter submit", rendered: "Enter submit"},
-				{plain: "Esc cancel", rendered: "Esc cancel"},
-				{plain: "Backspace edit", rendered: "Backspace edit"},
-			}, width, "cyan")...,
-		)
 	} else {
 		footerLines = append(footerLines,
 			renderer.wrapPairs("Help", []textPair{
