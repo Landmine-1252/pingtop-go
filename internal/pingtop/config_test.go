@@ -138,6 +138,35 @@ func TestDefaultConfigUsesEmbeddedUpdateRepoURL(t *testing.T) {
 	}
 }
 
+func TestConfigNormalizeMigratesLegacyUpdateRepoURL(t *testing.T) {
+	config := configFromMap(map[string]any{
+		"update_repo_url": "https://github.com/Landmine-1252/pingtop",
+		"targets":         []any{"1.1.1.1"},
+	})
+	config.Normalize()
+
+	if config.UpdateRepoURL != DefaultUpdateRepoURL {
+		t.Fatalf("expected legacy repo url to migrate to %q, got %q", DefaultUpdateRepoURL, config.UpdateRepoURL)
+	}
+}
+
+func TestConfigManagerLoadsLegacyUpdateRepoURLAsCurrentRepo(t *testing.T) {
+	tempDir := t.TempDir()
+	path := filepath.Join(tempDir, "pingtop.json")
+	if err := os.WriteFile(path, []byte(`{
+  "version": 1,
+  "update_repo_url": "https://github.com/Landmine-1252/pingtop",
+  "targets": [{"value":"1.1.1.1","type":"ip"}]
+}`), 0o644); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+
+	manager := NewConfigManager(path)
+	if got := manager.Snapshot().UpdateRepoURL; got != DefaultUpdateRepoURL {
+		t.Fatalf("expected migrated repo url %q, got %q", DefaultUpdateRepoURL, got)
+	}
+}
+
 func TestConfigFromMapDefaultsHelpVisibleForOlderConfigs(t *testing.T) {
 	config := configFromMap(map[string]any{
 		"targets": []any{"1.1.1.1"},

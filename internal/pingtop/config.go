@@ -22,6 +22,8 @@ var defaultTargetValues = []string{
 
 var loggingModes = []string{"all", "failures_only", "around_failure"}
 
+const legacyDefaultUpdateRepoURL = "https://github.com/Landmine-1252/pingtop"
+
 type AppConfig struct {
 	Version                  int          `json:"version"`
 	CheckIntervalSeconds     float64      `json:"check_interval_seconds"`
@@ -89,7 +91,7 @@ func (config *AppConfig) Normalize() {
 	config.PingTimeoutMS = int(clampFloat(float64(config.PingTimeoutMS), 250.0, 30000.0))
 	config.UIRefreshIntervalSeconds = mathRound(clampFloat(config.UIRefreshIntervalSeconds, 0.1, 5.0), 2)
 	config.StatsWindowSeconds = int(clampFloat(float64(config.StatsWindowSeconds), 30.0, 2_592_000.0))
-	config.UpdateRepoURL = strings.TrimRight(strings.TrimSpace(config.UpdateRepoURL), "/")
+	config.UpdateRepoURL = normalizeUpdateRepoURL(config.UpdateRepoURL)
 	config.DiagnosisConfirmCycles = int(clampFloat(float64(config.DiagnosisConfirmCycles), 1.0, 10.0))
 	config.RecoveryConfirmCycles = int(clampFloat(float64(config.RecoveryConfirmCycles), 1.0, 10.0))
 	config.LatencyWarningMS = int(clampFloat(float64(config.LatencyWarningMS), 10.0, 10000.0))
@@ -122,6 +124,21 @@ func (config *AppConfig) Normalize() {
 		normalizedTargets = append(normalizedTargets, normalized)
 	}
 	config.Targets = normalizedTargets
+}
+
+func normalizeUpdateRepoURL(raw string) string {
+	value := strings.TrimSpace(raw)
+	if strings.HasPrefix(value, "git@github.com:") {
+		value = "https://github.com/" + strings.TrimPrefix(value, "git@github.com:")
+	}
+	if strings.HasSuffix(value, ".git") {
+		value = strings.TrimSuffix(value, ".git")
+	}
+	value = strings.TrimRight(value, "/")
+	if strings.EqualFold(value, legacyDefaultUpdateRepoURL) {
+		return DefaultUpdateRepoURL
+	}
+	return value
 }
 
 type ConfigManager struct {
