@@ -85,14 +85,26 @@ pingtop --check-updates --current-version 0.1.3 --update-repo https://github.com
 
 ## Controls
 
-The interactive UI starts with help visible by default and remembers the last help visibility choice in `pingtop.json`. Press `h` to show or hide the full help panel. Common controls:
+The interactive UI starts with help visible by default and remembers the last help visibility choice in `pingtop.json`. Press `h` to show or hide the full help panel.
 
+**Controls**
 - `q` or `Esc`: quit
-- `h`: show or hide help
 - `p`: pause or resume
-- `a` / `d`: add or delete a target
+- `h`: show or hide help
 - `s`: save a snapshot
+- `r`: reset session counters
 - `u`: open the release page
+
+**Tuning**
+- `l`: cycle logging mode
+- `+` / `-`: increase or decrease the check interval
+- `<` / `>`: adjust the UI refresh rate
+- `w`: set the around-failure window
+- `t`: set the stats window
+
+**Targets**
+- `a`: add a target
+- `d`: delete a target
 
 ## Release Flow
 
