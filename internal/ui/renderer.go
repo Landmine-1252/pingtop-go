@@ -26,6 +26,7 @@ var (
 	formatTimestampShort = pingtop.FormatTimestampShort
 	nowLocalISO          = pingtop.NowLocalISO
 	shorten              = pingtop.Shorten
+	terminalSize         = TerminalSize
 )
 
 type textPair struct {
@@ -70,13 +71,22 @@ func (renderer *Renderer) Draw(text string) {
 	for index := len(lines) + 1; index <= renderer.lastRenderedLineCount; index++ {
 		fmt.Fprintf(os.Stdout, "\x1b[%d;1H\x1b[2K", index)
 	}
-	fmt.Fprintf(os.Stdout, "\x1b[%d;1H\x1b[J", len(lines)+1)
+	if _, height := terminalSize(); clearBelowAllowed(len(lines), height) {
+		fmt.Fprintf(os.Stdout, "\x1b[%d;1H\x1b[J", len(lines)+1)
+	}
 	renderer.lastRenderedLineCount = len(lines)
+}
+
+func clearBelowAllowed(lineCount, height int) bool {
+	if height <= 0 {
+		return true
+	}
+	return lineCount < height
 }
 
 func (renderer *Renderer) BuildExitSummary(snapshot StateSnapshot) string {
 	width := 72
-	if terminalWidth, _ := TerminalSize(); terminalWidth > 0 {
+	if terminalWidth, _ := terminalSize(); terminalWidth > 0 {
 		width = minInt(maxInt(56, terminalWidth), 96)
 	}
 	diagnosisColor := renderer.diagnosisColor(snapshot.Diagnosis, false)
@@ -123,7 +133,7 @@ func (renderer *Renderer) BuildScreen(
 	prompt *PromptState,
 	updateStatus UpdateStatus,
 ) string {
-	width, height := TerminalSize()
+	width, height := terminalSize()
 	if width < 40 {
 		width = 40
 	}
@@ -236,7 +246,8 @@ func (renderer *Renderer) BuildScreen(
 	footerBlock := []string{renderer.rule(width, "-")}
 	footerBlock = append(footerBlock, footerLines...)
 
-	middleCapacity := maxInt(0, height-len(headerLines)-len(footerBlock))
+	topCapacity := maxInt(0, height-len(footerBlock))
+	middleCapacity := maxInt(0, topCapacity-len(headerLines))
 	middleLines := make([]string, 0, middleCapacity)
 	eventTitle := renderer.sectionTitle("Events", fmt.Sprintf("showing %d/%d", shownEventCount, len(visibleEvents)), width)
 	if middleCapacity <= len(tableLines) {
@@ -261,7 +272,15 @@ func (renderer *Renderer) BuildScreen(
 		}
 	}
 
-	lines := append(append(headerLines, middleLines...), footerBlock...)
+	topLines := append(append([]string(nil), headerLines...), middleLines...)
+	if len(topLines) > topCapacity {
+		topLines = topLines[:topCapacity]
+	}
+	for len(topLines) < topCapacity {
+		topLines = append(topLines, "")
+	}
+
+	lines := append(topLines, footerBlock...)
 	if prompt != nil {
 		lines = renderer.overlayPrompt(lines, width, height, *prompt)
 	}
