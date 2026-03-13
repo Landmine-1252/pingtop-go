@@ -11,6 +11,8 @@ import (
 	"time"
 )
 
+const inputSequenceTimeout = 10 * time.Millisecond
+
 type linuxInputHandler struct {
 	fd           int
 	originalMode string
@@ -52,7 +54,7 @@ func (handler *linuxInputHandler) ReadKeys(timeout time.Duration) []string {
 		return nil
 	}
 	buffer := make([]byte, 64)
-	keys := make([]string, 0, 8)
+	raw := make([]byte, 0, 16)
 	for {
 		count, err := syscall.Read(handler.fd, buffer)
 		if err == syscall.EINTR {
@@ -61,14 +63,16 @@ func (handler *linuxInputHandler) ReadKeys(timeout time.Duration) []string {
 		if err != nil || count <= 0 {
 			break
 		}
-		for _, value := range buffer[:count] {
-			keys = append(keys, string([]byte{value}))
+		raw = append(raw, buffer[:count]...)
+		nextTimeout := time.Duration(0)
+		if trailingEscapeSequenceNeedsMore(raw) {
+			nextTimeout = inputSequenceTimeout
 		}
-		if !handler.waitReadable(0) {
+		if !handler.waitReadable(nextTimeout) {
 			break
 		}
 	}
-	return keys
+	return decodeInputBytes(raw)
 }
 
 func (handler *linuxInputHandler) waitReadable(timeout time.Duration) bool {

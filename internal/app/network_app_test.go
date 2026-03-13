@@ -9,6 +9,7 @@ import (
 
 	"github.com/landmine-1252/pingtop-go/internal/checks"
 	"github.com/landmine-1252/pingtop-go/internal/pingtop"
+	termui "github.com/landmine-1252/pingtop-go/internal/ui"
 )
 
 func TestRunHeadlessOncePrintsSummary(t *testing.T) {
@@ -197,7 +198,7 @@ func TestHandleKeyEscQuitsWhenNoPromptIsActive(t *testing.T) {
 		services.coordinator,
 		services.updateManager,
 	)
-	ui.handleKey("\x1b")
+	ui.handleKey(termui.KeyEscape)
 
 	if ui.running {
 		t.Fatal("expected Esc to stop the UI when no prompt is active")
@@ -224,7 +225,7 @@ func TestHandleKeyEscCancelsPromptWithoutQuitting(t *testing.T) {
 		services.updateManager,
 	)
 	ui.prompt = &PromptState{Kind: "add", Message: "test"}
-	ui.handleKey("\x1b")
+	ui.handleKey(termui.KeyEscape)
 
 	if !ui.running {
 		t.Fatal("expected Esc to keep the UI running while canceling a prompt")

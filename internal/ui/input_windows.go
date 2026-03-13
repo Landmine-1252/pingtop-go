@@ -45,9 +45,14 @@ func (handler *windowsInputHandler) ReadKeys(timeout time.Duration) []string {
 			value, _, _ := procGetWCh.Call()
 			key := rune(value)
 			if key == 0 || key == 0xe0 {
-				if nextReady, _, _ := procKbhit.Call(); nextReady != 0 {
-					_, _, _ = procGetWCh.Call()
+				scanCode, _, _ := procGetWCh.Call()
+				if special := specialWindowsKey(rune(scanCode)); special != "" {
+					keys = append(keys, special)
 				}
+				continue
+			}
+			if key == '\x1b' {
+				keys = append(keys, KeyEscape)
 				continue
 			}
 			keys = append(keys, string(key))

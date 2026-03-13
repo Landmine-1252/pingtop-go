@@ -34,6 +34,22 @@ type textPair struct {
 	rendered string
 }
 
+type screenChrome struct {
+	width         int
+	height        int
+	visibleEvents []EventEntry
+	headerLines   []string
+	tableLines    []string
+	footerBlock   []string
+}
+
+type eventPanelView struct {
+	events         []EventEntry
+	availableLines int
+	start          int
+	end            int
+}
+
 type Renderer struct {
 	ansi                  bool
 	lastRenderedLineCount int
@@ -132,7 +148,117 @@ func (renderer *Renderer) BuildScreen(
 	helpVisible bool,
 	prompt *PromptState,
 	updateStatus UpdateStatus,
+	eventScrollOffset int,
 ) string {
+	chrome, eventView := renderer.buildScreenLayout(snapshot, config, paused, helpVisible, updateStatus, eventScrollOffset)
+	topCapacity := maxInt(0, chrome.height-len(chrome.footerBlock))
+	middleCapacity := chrome.middleCapacity()
+	middleLines := make([]string, 0, middleCapacity)
+	eventTitle := renderer.sectionTitle("Events", eventView.summary(), chrome.width)
+	if middleCapacity <= len(chrome.tableLines) {
+		middleLines = append(middleLines, chrome.tableLines[:middleCapacity]...)
+	} else {
+		middleLines = append(middleLines, chrome.tableLines...)
+		remaining := middleCapacity - len(chrome.tableLines)
+		if remaining >= 3 && eventView.availableLines > 0 {
+			eventLines := renderer.buildEventPanel(eventView.events, chrome.width, eventView.start, eventView.end, true)
+			eventBlock := []string{renderer.rule(chrome.width, "-"), eventTitle}
+			eventBlock = append(eventBlock, eventLines...)
+			if len(eventBlock) > remaining {
+				eventBlock = eventBlock[:remaining]
+			}
+			middleLines = append(middleLines, eventBlock...)
+		}
+		for len(middleLines) < middleCapacity {
+			middleLines = append(middleLines, "")
+		}
+	}
+
+	topLines := append(append([]string(nil), chrome.headerLines...), middleLines...)
+	if len(topLines) > topCapacity {
+		topLines = topLines[:topCapacity]
+	}
+	for len(topLines) < topCapacity {
+		topLines = append(topLines, "")
+	}
+
+	lines := append(topLines, chrome.footerBlock...)
+	if prompt != nil {
+		lines = renderer.overlayPrompt(lines, chrome.width, chrome.height, *prompt)
+	}
+	if len(lines) > chrome.height {
+		lines = lines[:chrome.height]
+	}
+	return strings.Join(lines, "\n")
+}
+
+func (renderer *Renderer) EventScrollState(
+	snapshot StateSnapshot,
+	config AppConfig,
+	paused bool,
+	helpVisible bool,
+	prompt *PromptState,
+	updateStatus UpdateStatus,
+	eventScrollOffset int,
+) (int, int) {
+	_, view := renderer.buildScreenLayout(snapshot, config, paused, helpVisible, updateStatus, eventScrollOffset)
+	pageSize := view.availableLines
+	if pageSize < 1 {
+		pageSize = maxInt(3, config.VisibleEventLines)
+	}
+	return minInt(maxInt(eventScrollOffset, 0), view.maxScrollOffset()), pageSize
+}
+
+func (renderer *Renderer) BuildReport(snapshot StateSnapshot, config AppConfig, paused bool) string {
+	width := 180
+	header := []string{
+		"pingtop session snapshot - " + nowLocalISO(timeNow(), false),
+		"status: " + ternaryString(paused, "paused", "running"),
+		"diagnosis: " + snapshot.Diagnosis,
+		fmt.Sprintf(
+			"check_interval_seconds=%.2f, ping_timeout_ms=%d, stats_window_seconds=%d, ui_refresh_interval_seconds=%.2f, diagnosis_confirm_cycles=%d, recovery_confirm_cycles=%d, latency_warning_ms=%d, latency_critical_ms=%d, log_rotation_max_mb=%d, log_rotation_keep_files=%d, logging_mode=%s, around_failure=%d/%ds, visible_event_lines=%d",
+			config.CheckIntervalSeconds,
+			config.PingTimeoutMS,
+			config.StatsWindowSeconds,
+			config.UIRefreshIntervalSeconds,
+			config.DiagnosisConfirmCycles,
+			config.RecoveryConfirmCycles,
+			config.LatencyWarningMS,
+			config.LatencyCriticalMS,
+			config.LogRotationMaxMB,
+			config.LogRotationKeepFiles,
+			config.LoggingMode,
+			config.AroundFailureBefore,
+			config.AroundFailureAfter,
+			config.VisibleEventLines,
+		),
+		fmt.Sprintf(
+			"rolling_window: checks=%d, ok=%d, fail=%d, dns=%d, ping=%d",
+			snapshot.SessionWindow.Checks,
+			snapshot.SessionWindow.Successes,
+			snapshot.SessionWindow.Failures,
+			snapshot.SessionWindow.DNSFailures,
+			snapshot.SessionWindow.PingFailures,
+		),
+		"",
+	}
+	visibleEvents := renderer.interestingEvents(snapshot.RecentEvents)
+	body := renderer.buildTargetTable(snapshot.TargetStats, width, config, false)
+	events := []string{"", "Recent events"}
+	shownLines := minInt(15, config.VisibleEventLines)
+	start := maxInt(0, len(visibleEvents)-shownLines)
+	events = append(events, renderer.buildEventPanel(visibleEvents, width, start, len(visibleEvents), false)...)
+	return strings.Join(append(append(header, body...), events...), "\n") + "\n"
+}
+
+func (renderer *Renderer) buildScreenChrome(
+	snapshot StateSnapshot,
+	config AppConfig,
+	paused bool,
+	helpVisible bool,
+	updateStatus UpdateStatus,
+	eventStatus string,
+) screenChrome {
 	width, height := terminalSize()
 	if width < 40 {
 		width = 40
@@ -152,10 +278,11 @@ func (renderer *Renderer) BuildScreen(
 	}
 
 	visibleEvents := renderer.interestingEvents(snapshot.RecentEvents)
-	shownEventCount := minInt(len(visibleEvents), config.VisibleEventLines)
-
 	statusColor := renderer.diagnosisColor(snapshot.Diagnosis, paused)
 	title := "pingtop " + pingtop.Version
+	if eventStatus == "" {
+		eventStatus = fmt.Sprintf("%d total", len(visibleEvents))
+	}
 
 	headerLines := []string{renderer.style(title, "green", true, false)}
 	headerLines = append(headerLines, renderer.diagnosisBanner(snapshot.Diagnosis, width, statusColor))
@@ -163,7 +290,7 @@ func (renderer *Renderer) BuildScreen(
 		renderer.wrapPairs("Status", []textPair{
 			renderer.kvPair("mode", status, "white", statusColor),
 			renderer.kvPair("update", renderer.updateStatusText(updateStatus), "white", renderer.updateStatusColor(updateStatus)),
-			renderer.kvPair("events", fmt.Sprintf("%d/%d", shownEventCount, len(visibleEvents)), "white", ""),
+			renderer.kvPair("events", eventStatus, "white", ""),
 			renderer.kvPair("last", formatTimestampShort(snapshot.LastCycleCompletedAt), "white", ""),
 		}, width, statusColor)...,
 	)
@@ -234,6 +361,12 @@ func (renderer *Renderer) BuildScreen(
 				renderer.shortcutPair("d", "delete"),
 			}, width, "cyan")...,
 		)
+		footerLines = append(footerLines,
+			renderer.wrapPairs("Events", []textPair{
+				renderer.shortcutPair("Up/Down", "scroll"),
+				renderer.shortcutPair("PgUp/PgDn", "page"),
+			}, width, "cyan")...,
+		)
 	} else {
 		footerLines = append(footerLines,
 			renderer.wrapPairs("Help", []textPair{
@@ -246,88 +379,81 @@ func (renderer *Renderer) BuildScreen(
 	footerBlock := []string{renderer.rule(width, "-")}
 	footerBlock = append(footerBlock, footerLines...)
 
-	topCapacity := maxInt(0, height-len(footerBlock))
-	middleCapacity := maxInt(0, topCapacity-len(headerLines))
-	middleLines := make([]string, 0, middleCapacity)
-	eventTitle := renderer.sectionTitle("Events", fmt.Sprintf("showing %d/%d", shownEventCount, len(visibleEvents)), width)
-	if middleCapacity <= len(tableLines) {
-		middleLines = append(middleLines, tableLines[:middleCapacity]...)
-	} else {
-		middleLines = append(middleLines, tableLines...)
-		remaining := middleCapacity - len(tableLines)
-		if remaining >= 3 {
-			availableEventLines := minInt(config.VisibleEventLines, remaining-2)
-			eventLines := renderer.buildEventPanel(visibleEvents, width, availableEventLines, true)
-			eventBlock := []string{renderer.rule(width, "-"), eventTitle}
-			if availableEventLines > 0 {
-				eventBlock = append(eventBlock, eventLines[:minInt(len(eventLines), availableEventLines)]...)
-			}
-			if len(eventBlock) > remaining {
-				eventBlock = eventBlock[:remaining]
-			}
-			middleLines = append(middleLines, eventBlock...)
-		}
-		for len(middleLines) < middleCapacity {
-			middleLines = append(middleLines, "")
-		}
+	return screenChrome{
+		width:         width,
+		height:        height,
+		visibleEvents: visibleEvents,
+		headerLines:   headerLines,
+		tableLines:    tableLines,
+		footerBlock:   footerBlock,
 	}
-
-	topLines := append(append([]string(nil), headerLines...), middleLines...)
-	if len(topLines) > topCapacity {
-		topLines = topLines[:topCapacity]
-	}
-	for len(topLines) < topCapacity {
-		topLines = append(topLines, "")
-	}
-
-	lines := append(topLines, footerBlock...)
-	if prompt != nil {
-		lines = renderer.overlayPrompt(lines, width, height, *prompt)
-	}
-	if len(lines) > height {
-		lines = lines[:height]
-	}
-	return strings.Join(lines, "\n")
 }
 
-func (renderer *Renderer) BuildReport(snapshot StateSnapshot, config AppConfig, paused bool) string {
-	width := 180
-	header := []string{
-		"pingtop session snapshot - " + nowLocalISO(timeNow(), false),
-		"status: " + ternaryString(paused, "paused", "running"),
-		"diagnosis: " + snapshot.Diagnosis,
-		fmt.Sprintf(
-			"check_interval_seconds=%.2f, ping_timeout_ms=%d, stats_window_seconds=%d, ui_refresh_interval_seconds=%.2f, diagnosis_confirm_cycles=%d, recovery_confirm_cycles=%d, latency_warning_ms=%d, latency_critical_ms=%d, log_rotation_max_mb=%d, log_rotation_keep_files=%d, logging_mode=%s, around_failure=%d/%ds, visible_event_lines=%d",
-			config.CheckIntervalSeconds,
-			config.PingTimeoutMS,
-			config.StatsWindowSeconds,
-			config.UIRefreshIntervalSeconds,
-			config.DiagnosisConfirmCycles,
-			config.RecoveryConfirmCycles,
-			config.LatencyWarningMS,
-			config.LatencyCriticalMS,
-			config.LogRotationMaxMB,
-			config.LogRotationKeepFiles,
-			config.LoggingMode,
-			config.AroundFailureBefore,
-			config.AroundFailureAfter,
-			config.VisibleEventLines,
-		),
-		fmt.Sprintf(
-			"rolling_window: checks=%d, ok=%d, fail=%d, dns=%d, ping=%d",
-			snapshot.SessionWindow.Checks,
-			snapshot.SessionWindow.Successes,
-			snapshot.SessionWindow.Failures,
-			snapshot.SessionWindow.DNSFailures,
-			snapshot.SessionWindow.PingFailures,
-		),
-		"",
+func (renderer *Renderer) buildScreenLayout(
+	snapshot StateSnapshot,
+	config AppConfig,
+	paused bool,
+	helpVisible bool,
+	updateStatus UpdateStatus,
+	eventScrollOffset int,
+) (screenChrome, eventPanelView) {
+	chrome := renderer.buildScreenChrome(snapshot, config, paused, helpVisible, updateStatus, "")
+	view := renderer.buildEventPanelView(chrome, config, eventScrollOffset)
+	eventStatus := fmt.Sprintf("%d/%d", view.shownCount(), len(chrome.visibleEvents))
+	chrome = renderer.buildScreenChrome(snapshot, config, paused, helpVisible, updateStatus, eventStatus)
+	view = renderer.buildEventPanelView(chrome, config, eventScrollOffset)
+	finalStatus := fmt.Sprintf("%d/%d", view.shownCount(), len(chrome.visibleEvents))
+	if finalStatus != eventStatus {
+		chrome = renderer.buildScreenChrome(snapshot, config, paused, helpVisible, updateStatus, finalStatus)
+		view = renderer.buildEventPanelView(chrome, config, eventScrollOffset)
 	}
-	visibleEvents := renderer.interestingEvents(snapshot.RecentEvents)
-	body := renderer.buildTargetTable(snapshot.TargetStats, width, config, false)
-	events := []string{"", "Recent events"}
-	events = append(events, renderer.buildEventPanel(visibleEvents, width, minInt(15, config.VisibleEventLines), false)...)
-	return strings.Join(append(append(header, body...), events...), "\n") + "\n"
+	return chrome, view
+}
+
+func (chrome screenChrome) middleCapacity() int {
+	topCapacity := maxInt(0, chrome.height-len(chrome.footerBlock))
+	return maxInt(0, topCapacity-len(chrome.headerLines))
+}
+
+func (renderer *Renderer) buildEventPanelView(chrome screenChrome, config AppConfig, eventScrollOffset int) eventPanelView {
+	view := eventPanelView{events: chrome.visibleEvents}
+	if chrome.middleCapacity() <= len(chrome.tableLines) {
+		return view
+	}
+
+	remaining := chrome.middleCapacity() - len(chrome.tableLines)
+	if remaining < 5 {
+		return view
+	}
+
+	view.availableLines = remaining - 2
+	if view.availableLines < 3 {
+		return view
+	}
+
+	clampedOffset := minInt(maxInt(eventScrollOffset, 0), view.maxScrollOffset())
+	view.end = len(view.events) - clampedOffset
+	view.start = maxInt(0, view.end-view.availableLines)
+	return view
+}
+
+func (view eventPanelView) maxScrollOffset() int {
+	if view.availableLines <= 0 {
+		return 0
+	}
+	return maxInt(0, len(view.events)-view.availableLines)
+}
+
+func (view eventPanelView) shownCount() int {
+	return maxInt(0, view.end-view.start)
+}
+
+func (view eventPanelView) summary() string {
+	total := len(view.events)
+	if total == 0 || view.shownCount() == 0 {
+		return fmt.Sprintf("showing 0/%d", total)
+	}
+	return fmt.Sprintf("showing %d-%d/%d", view.start+1, view.end, total)
 }
 
 func (renderer *Renderer) style(text, fg string, bold, dim bool) string {
@@ -617,7 +743,7 @@ func (renderer *Renderer) buildTargetTable(statsList []TargetStats, width int, c
 	return lines
 }
 
-func (renderer *Renderer) buildEventPanel(events []EventEntry, width, availableLines int, ansi bool) []string {
+func (renderer *Renderer) buildEventPanel(events []EventEntry, width, start, end int, ansi bool) []string {
 	previousANSI := renderer.ansi
 	renderer.ansi = ansi
 	defer func() {
@@ -627,8 +753,12 @@ func (renderer *Renderer) buildEventPanel(events []EventEntry, width, availableL
 	if len(events) == 0 {
 		return []string{renderer.style("  - no notable failures, recoveries, or config changes yet", "white", false, true)}
 	}
-	start := maxInt(0, len(events)-availableLines)
-	selected := events[start:]
+	start = minInt(maxInt(start, 0), len(events))
+	end = minInt(maxInt(end, start), len(events))
+	selected := events[start:end]
+	if len(selected) == 0 {
+		return nil
+	}
 	lines := make([]string, 0, len(selected))
 	for _, event := range selected {
 		prefix := fmt.Sprintf("%s %-5s", formatTimestampShort(event.Timestamp), strings.ToUpper(event.Level))

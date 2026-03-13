@@ -94,6 +94,8 @@ The interactive UI starts with help visible by default and remembers the last he
 - `s`: save a snapshot
 - `r`: reset session counters
 - `u`: open the release page
+- `Up` / `Down`: scroll older or newer events
+- `PgUp` / `PgDn`: page through event history
 
 **Tuning**
 - `l`: cycle logging mode

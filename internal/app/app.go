@@ -369,33 +369,35 @@ func runUpdateCheck(output io.Writer, errorOutput io.Writer, args cliArgs) int {
 }
 
 type PingTopUI struct {
-	runtimePaths    RuntimePaths
-	configManager   *ConfigManager
-	stateStore      *StateStore
-	logger          *CSVLogger
-	coordinator     *CheckCoordinator
-	updateManager   *UpdateManager
-	monitor         *BackgroundMonitor
-	renderer        *Renderer
-	helpVisible     bool
-	prompt          *PromptState
-	running         bool
-	lastUpdateState string
-	dirty           bool
-	lastRender      uiRenderState
-	hasLastRender   bool
+	runtimePaths      RuntimePaths
+	configManager     *ConfigManager
+	stateStore        *StateStore
+	logger            *CSVLogger
+	coordinator       *CheckCoordinator
+	updateManager     *UpdateManager
+	monitor           *BackgroundMonitor
+	renderer          *Renderer
+	helpVisible       bool
+	prompt            *PromptState
+	eventScrollOffset int
+	running           bool
+	lastUpdateState   string
+	dirty             bool
+	lastRender        uiRenderState
+	hasLastRender     bool
 }
 
 type uiRenderState struct {
-	StateRevision  uint64
-	ConfigRevision uint64
-	UpdateStatus   UpdateStatus
-	Paused         bool
-	HelpVisible    bool
-	HasPrompt      bool
-	Prompt         PromptState
-	Width          int
-	Height         int
+	StateRevision     uint64
+	ConfigRevision    uint64
+	UpdateStatus      UpdateStatus
+	Paused            bool
+	HelpVisible       bool
+	EventScrollOffset int
+	HasPrompt         bool
+	Prompt            PromptState
+	Width             int
+	Height            int
 }
 
 func NewPingTopUI(
@@ -462,11 +464,11 @@ func (ui *PingTopUI) renderIfNeeded(config AppConfig) {
 	if config.Version == 0 {
 		config = ui.configManager.Snapshot()
 	}
-	renderState := ui.buildRenderState()
+	snapshot := ui.stateStore.Snapshot()
+	renderState := ui.buildRenderState(snapshot, config)
 	if !ui.dirty && ui.hasLastRender && renderState == ui.lastRender {
 		return
 	}
-	snapshot := ui.stateStore.Snapshot()
 	screen := ui.renderer.BuildScreen(
 		snapshot,
 		config,
@@ -474,6 +476,7 @@ func (ui *PingTopUI) renderIfNeeded(config AppConfig) {
 		renderState.HelpVisible,
 		ui.prompt,
 		renderState.UpdateStatus,
+		renderState.EventScrollOffset,
 	)
 	ui.renderer.Draw(screen)
 	ui.lastRender = renderState
@@ -481,7 +484,7 @@ func (ui *PingTopUI) renderIfNeeded(config AppConfig) {
 	ui.dirty = false
 }
 
-func (ui *PingTopUI) buildRenderState() uiRenderState {
+func (ui *PingTopUI) buildRenderState(snapshot StateSnapshot, config AppConfig) uiRenderState {
 	width, height := termui.TerminalSize()
 	state := uiRenderState{
 		StateRevision:  ui.stateStore.Revision(),
@@ -492,6 +495,16 @@ func (ui *PingTopUI) buildRenderState() uiRenderState {
 		Width:          width,
 		Height:         height,
 	}
+	ui.eventScrollOffset, _ = ui.renderer.EventScrollState(
+		snapshot,
+		config,
+		state.Paused,
+		state.HelpVisible,
+		ui.prompt,
+		state.UpdateStatus,
+		ui.eventScrollOffset,
+	)
+	state.EventScrollOffset = ui.eventScrollOffset
 	if ui.prompt != nil {
 		state.HasPrompt = true
 		state.Prompt = *ui.prompt
@@ -523,9 +536,24 @@ func (ui *PingTopUI) handleKey(key string) {
 		ui.handlePromptKey(key)
 		return
 	}
-	if key == "\x1b" {
+	if key == termui.KeyEscape {
 		ui.dirty = true
 		ui.running = false
+		return
+	}
+
+	switch key {
+	case termui.KeyUp:
+		ui.scrollEvents(1)
+		return
+	case termui.KeyDown:
+		ui.scrollEvents(-1)
+		return
+	case termui.KeyPageUp:
+		ui.pageEvents(1)
+		return
+	case termui.KeyPageDown:
+		ui.pageEvents(-1)
 		return
 	}
 
@@ -611,7 +639,7 @@ func (ui *PingTopUI) handlePromptKey(key string) {
 		case "stats_window":
 			ui.submitStatsWindow(value)
 		}
-	case "\x1b":
+	case termui.KeyEscape:
 		ui.dirty = true
 		ui.prompt = nil
 	case "\x7f", "\b":
@@ -625,6 +653,41 @@ func (ui *PingTopUI) handlePromptKey(key string) {
 			ui.prompt.Buffer += key
 		}
 	}
+}
+
+func (ui *PingTopUI) scrollEvents(delta int) {
+	if delta == 0 {
+		return
+	}
+	ui.dirty = true
+	ui.eventScrollOffset += delta
+	ui.normalizeEventScroll()
+}
+
+func (ui *PingTopUI) pageEvents(direction int) {
+	if direction == 0 {
+		return
+	}
+	_, pageSize := ui.eventScrollState()
+	ui.scrollEvents(direction * pageSize)
+}
+
+func (ui *PingTopUI) normalizeEventScroll() {
+	clampedOffset, _ := ui.eventScrollState()
+	ui.eventScrollOffset = clampedOffset
+}
+
+func (ui *PingTopUI) eventScrollState() (int, int) {
+	config := ui.configManager.Snapshot()
+	return ui.renderer.EventScrollState(
+		ui.stateStore.Snapshot(),
+		config,
+		ui.monitor.IsPaused(),
+		ui.helpVisible,
+		ui.prompt,
+		ui.updateManager.Snapshot(),
+		ui.eventScrollOffset,
+	)
 }
 
 func (ui *PingTopUI) cycleLoggingMode() {
